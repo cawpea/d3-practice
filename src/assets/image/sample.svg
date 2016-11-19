@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="896px" height="896px" viewBox="0 0 896 896" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:sketch="http://www.bohemiancoding.com/sketch/ns">
+    <!-- Generator: Sketch 3.2 (9961) - http://www.bohemiancoding.com/sketch -->
+    <title>icon!</title>
+    <desc>Created with Sketch.</desc>
+    <defs></defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd" sketch:type="MSPage">
+        <g id="iTunesArtwork@2x" sketch:type="MSArtboardGroup" transform="translate(-64.000000, -64.000000)">
+            <g id="icon" sketch:type="MSLayerGroup" transform="translate(64.000000, 64.000000)">
+                <path d="M448,896 C695.423568,896 896,695.423568 896,448 C896,200.576432 695.423568,0 448,0 C200.576432,0 0,200.576432 0,448 C0,695.423568 200.576432,896 448,896 Z M448,752 C615.894564,752 752,615.894564 752,448 C752,280.105436 615.894564,144 448,144 C280.105436,144 144,280.105436 144,448 C144,615.894564 280.105436,752 448,752 Z" id="Oval-1" fill="#626262" sketch:type="MSShapeGroup"></path>
+                <polygon id="Polygon-1" fill="#626262" sketch:type="MSShapeGroup" points="448 144 711.271723 296 711.271723 600 448 752 184.728277 600 184.728277 296 "></polygon>
+                <polygon id="Polygon-2" fill="#CECECE" sketch:type="MSShapeGroup" points="448 196.695754 665.635861 322.347877 665.635861 573.652123 448 699.304246 230.364139 573.652123 230.364139 322.347877 "></polygon>
+                <polygon id="Polygon-3" fill="#FFFFFF" sketch:type="MSShapeGroup" points="448 250.179093 619.317931 349.089547 619.317931 546.910453 448 645.820907 276.682069 546.910453 276.682069 349.089547 "></polygon>
+            </g>
+        </g>
+    </g>
+</svg>

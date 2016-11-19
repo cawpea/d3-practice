@@ -1,0 +1,9 @@
+$link-color: red;
+
+a {
+	color: $link-color;
+	border: 1px solid $link-color;
+	padding: 10px;
+	transition: 200ms ease-out transform;
+	transform: translate(0, 0);
+}
