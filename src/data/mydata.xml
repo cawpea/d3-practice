@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<datalist>
+  <data>
+    <item>商品A</item>
+    <sales>150</sales>
+    <sales>90</sales>
+    <sales>300</sales>
+    <sales>200</sales>
+    <sales>120</sales>
+  </data>
+  <data>
+    <item>商品B</item>
+    <sales>70</sales>
+    <sales>260</sales>
+    <sales>110</sales>
+    <sales>30</sales>
+    <sales>90</sales>
+  </data>
+  <data>
+    <item>商品C</item>
+    <sales>20</sales>
+    <sales>40</sales>
+    <sales>280</sales>
+    <sales>80</sales>
+    <sales>190</sales>
+  </data>
+</datalist>
