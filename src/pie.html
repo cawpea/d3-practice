@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Document</title>
+  <style>
+  svg {
+    width: 320px;
+    height: 240px;
+    border: 1px solid black;
+  }
+  .pie {
+    fill: orange;
+    stroke: black;
+  }
+  .total {
+    font-size: 9pt;
+    text-anchor: middle;
+  }
+  .pieNum {
+    font-size: 10pt;
+    text-anchor: middle;
+  }
+  </style>
+</head>
+<body>
+  <h1>円グラフを表示</h1>
+  <div>
+    <svg id="myGraph"></svg>
+  </div>
+  <form>
+    <select id="year">
+      <option value="2008">2008年</option>
+      <option value="2009">2009年</option>
+      <option value="2010">2010年</option>
+    </select>
+  </form>
+  <script src="https://d3js.org/d3.v4.min.js"></script>
+  <script src="/assets/js/pie.js"></script>
+</body>
+</html>
