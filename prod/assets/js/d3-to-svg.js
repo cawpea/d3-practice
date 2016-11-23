@@ -5,11 +5,22 @@ var d3toSvg = function() {
 d3toSvg.prototype = {
   init: function() {
     this.$svg = this.$myGraph.append('svg')
-    // this.fetchCSVData();
+    this.bindEvents();
+    this.fetchCSVData();
     // this.fetchJsonData();
     // this.fetchHtmlData();
     // this.fetchXmlData();
-    this.fetchTextData();
+    // this.fetchTextData();
+  },
+  bindEvents: function() {
+    var _this = this;
+    d3.selectAll('button').on('click', function() {
+      _this.onClickButtion(this);
+    });
+  },
+  onClickButtion: function(target) {
+    var csvFile = target.getAttribute('data-src');
+    this.fetchCSVData( csvFile );
   },
   initStyle: function() {
     for( var i = 0, len = 5; i < len; i++ ) {
@@ -47,9 +58,9 @@ d3toSvg.prototype = {
         }
       });
   },
-  fetchCSVData: function() {
+  fetchCSVData: function( fileName ) {
     var _this = this;
-    d3.csv('/data/mydata.csv')
+    d3.csv('/data/' + (fileName || 'mydata.csv') )
       // CSVから取得したデータの列名を変更する
       .row(function(d) {
         return {
@@ -64,6 +75,7 @@ d3toSvg.prototype = {
         for( var i = 0, len = data.length; i < len; i++ ) {
           dataSet.push( data[i].data1 );
         }
+        console.log( dataSet );
         _this.showGraph( dataSet );
       });
   },
@@ -140,20 +152,41 @@ d3toSvg.prototype = {
     });
   },
   showGraph: function( dataSet ) {
-    this.$svg
+    var barElements = this.$svg
       .selectAll('rect')
-      .data(dataSet)
+      .data(dataSet);
+
+    console.log( barElements );
+
+    //データの削除が行われる場合
+    barElements
+      .exit()
+      .remove();
+
+    barElements
       .enter()
       .append('rect')
+      //直接DOMの__data__プロパティを設定する
+      // .datum(function(d, i) {
+      //   return i * 10;
+      // })
       .attr('class', 'bar')
-      .attr('width', function(d, i) {
-        return d;
-      })
       .attr('height', 20)
       .attr('x', 9)
       .attr('y', function(d,i) {
         return i * 25;
+      })
+      //データごとに個別の処理を実行する場合はcall, each関数を使用する
+      .call(function(elements) {
+        elements.each(function(d, i) {
+          console.log(i + ' = ' + d);
+        });
       });
+
+    //データを更新する場合は表示更新処理を切り分ける
+    barElements.attr('width', function(d, i) {
+      return d;
+    })
   }
 };
 
