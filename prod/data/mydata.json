@@ -1,22 +1,26 @@
 [
-  {
-    "item": "商品A",
-    "sales": [150, 90, 300]
-  },
-  {
-    "item": "商品B",
-    "sales": [70, 260, 110]
-  },
-  {
-    "item": "商品C",
-    "sales": [20, 40, 280]
-  },
-  {
-    "item": "商品D",
-    "sales": [80, 100, 50]
-  },
-  {
-    "item": "商品E",
-    "sales": [190, 100, 220]
-  }
+  { "year": 1990, "item1": 11, "item2": 83, "item3": 42 },
+  { "year": 1991, "item1": 13, "item2": 44, "item3": 50 },
+  { "year": 1992, "item1": 14, "item2": 32, "item3": 30 },
+  { "year": 1993, "item1": 15, "item2": 2, "item3": 40 },
+  { "year": 1994, "item1": 20, "item2": 32, "item3": 88 },
+  { "year": 1995, "item1": 40, "item2": 66, "item3": 29 },
+  { "year": 1996, "item1": 50, "item2": 8, "item3": 20 },
+  { "year": 1997, "item1": 40, "item2": 94, "item3": 40 },
+  { "year": 1998, "item1": 56, "item2": 24, "item3": 77 },
+  { "year": 1999, "item1": 98, "item2": 43, "item3": 88 },
+  { "year": 2000, "item1": 50, "item2": 43, "item3": 99 },
+  { "year": 2001, "item1": 9, "item2": 21, "item3": 29 },
+  { "year": 2002, "item1": 30, "item2": 11, "item3": 43 },
+  { "year": 2003, "item1": 23, "item2": 89, "item3": 54 },
+  { "year": 2004, "item1": 4, "item2": 90, "item3": 50 },
+  { "year": 2005, "item1": 47, "item2": 77, "item3": 27 },
+  { "year": 2006, "item1": 65, "item2": 55, "item3": 45 },
+  { "year": 2007, "item1": 8, "item2": 48, "item3": 58 },
+  { "year": 2008, "item1": 64, "item2": 64, "item3": 84 },
+  { "year": 2009, "item1": 99, "item2": 90, "item3": 70 },
+  { "year": 2010, "item1": 75, "item2": 85, "item3": 45 },
+  { "year": 2011, "item1": 22, "item2": 42, "item3": 22 },
+  { "year": 2012, "item1": 63, "item2": 13, "item3": 30 },
+  { "year": 2013, "item1": 80, "item2": 40, "item3": 90 }
 ]
