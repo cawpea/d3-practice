@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Document</title>
+  <style>
+  svg {
+    width: 320px;
+    height: 320px;
+    border: 1px solid black;
+  }
+  circle {
+    stroke: black;
+    fill: none;
+  }
+  text {
+    font-size: 10pt;
+    text-anchor: middle;
+    fill: black;
+    opacity: 0;
+  }
+  </style>
+</head>
+<body>
+  <h1>パックレイアウトを表示</h1>
+  <div>
+    <svg id="myGraph"></svg>
+  </div>
+  <form>
+    <input type="button" value="2000年" data-year="year2000">
+    <input type="button" value="2005年" data-year="year2005">
+    <input type="button" value="2010年" data-year="year2010">
+  </form>
+  <script src="https://d3js.org/d3.v4.min.js"></script>
+  <script src="/assets/js/pack-layout.js"></script>
+</body>
+</html>
