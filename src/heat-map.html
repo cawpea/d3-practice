@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Document</title>
+  <style>
+  svg {
+    width: 160px;
+    height: 240px;
+    border: 1px solid black;
+  }
+  .block {
+    fill: none;
+  }
+  canvas {
+    width: 160px;
+    height: 240px;
+    border: 1px solid black;
+  }
+  #htmlGraph {
+    position: relative;
+    width: 160px;
+    height: 240px;
+    border: 1px solid black;
+    display: inline-block;
+  }
+  #htmlGraph div {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+  }
+  .content > * {
+    display: inline-block;
+  }
+  .content h2 {
+    margin-bottom: 10px;
+    line-height: 1em;
+  }
+  </style>
+</head>
+<body>
+  <h1>ヒートマップを表示</h1>
+  <div class="content">
+    <section>
+      <h2>SVG</h2>
+      <svg id="myGraph"></svg>
+    </section>
+    <section>
+      <h2>Canvas</h2>
+      <canvas id="myCanvas" width="160" height="240"></canvas>
+    </section>
+    <section>
+      <h2>HTML</h2>
+      <div id="htmlGraph"></div>
+    </section>
+  </div>
+  <script src="https://d3js.org/d3.v4.min.js"></script>
+  <script src="/assets/js/heat-map.js"></script>
+</body>
+</html>
