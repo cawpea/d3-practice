@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Document</title>
+  <style>
+  svg {
+    width: 640px;
+    height: 640px;
+    border: 1px solid black;
+    background-color: #FFF;
+  }
+  path {
+    fill: white;
+    stroke: black;
+    stroke-width: 0.5;
+  }
+  </style>
+</head>
+<body>
+  <h1>World Map</h1>
+  <svg id="myGraph">
+    <defs>
+      <radialGradient id="grad" cx="0.55" cy="0.55" r="0.75" fx="0.25" fy="0.25">
+        <stop offset="0%" stop-color="#2F44FF" />
+        <stop offset="100%" stop-color="#000000" />
+      </radialGradient>
+    </defs>
+  </svg>
+  <script src="https://d3js.org/d3.v4.min.js"></script>
+  <script src="/assets/js/world-map.js"></script>
+</body>
+</html>
