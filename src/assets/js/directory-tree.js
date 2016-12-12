@@ -221,7 +221,14 @@ class DirectoryTree {
   updateNode() {
     this.$nodes = this.$svg.selectAll('.node')
       .data( this.nodesList )
+      .classed('is-close', false)
       .transition()
+      .on('end', function(d) {
+        // アニメーションが終わった後にノードを非表示にする
+        if( !d.isShow ) {
+          d3.select(this).classed('is-close', true);
+        }
+      })
       .duration(800)
       .attr('opacity', (d) => {
         return d.isShow ? 1 : 0;
