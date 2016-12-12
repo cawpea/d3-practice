@@ -9,23 +9,23 @@ var flatData = [{ "name": "Top Level", "parent": null }, { "name": "Level 2: A",
 var margin = {
   top: 20,
   right: 90,
-  bottom: 30,
-  left: 90
+  bottom: 10,
+  left: 5
 };
-
-var width = 1000 - margin.left - margin.right;
-var height = 900 - margin.top - margin.bottom;
-
-var columnWidth = 200;
 
 var DirectoryTree = function () {
   function DirectoryTree(root) {
     _classCallCheck(this, DirectoryTree);
 
     this.vDepth = 0;
-    this.treemap = d3.tree().size([width, height]);
+    // this.treemap = d3.tree()
+    //   .size([viewWidth, viewHeight]);
 
     this.$svg = d3.select(root);
+
+    this.svgWidth = 1000;
+    this.svgHeight = 900;
+    this.columnWidth = 250;
   }
 
   _createClass(DirectoryTree, [{
@@ -40,7 +40,10 @@ var DirectoryTree = function () {
       d3.json('/data/directory-tree.json', function (error, data) {
         _this.treeData = data;
         _this.setTreeData();
+        _this.setLayoutData();
+        _this.appendBackground();
         _this.appendNode();
+        _this.appendLineToChild();
       });
     }
   }, {
@@ -49,102 +52,74 @@ var DirectoryTree = function () {
       this.nodes = d3.hierarchy(this.treeData, function (d) {
         return d.children;
       });
+      this.nodesList = this.nodes.descendants();
 
-      this.setLayoutData();
+      this.columnCount = d3.max(this.nodesList, function (d) {
+        return d.depth;
+      }) + 1;
 
+      this.svgWidth = this.columnCount * this.columnWidth;
       // この時点で各ノードのx, y座標が算出される。
-      this.nodes = this.treemap(this.nodes);
-    }
-    //最も遠い子孫（長男）を取得する関数
-
-  }, {
-    key: "getUnsonNode",
-    value: function getUnsonNode(node) {
-      node.vDepth = this.vDepth;
-      if (node.children === undefined || node.children === null || node.children.length === 0) {
-        return node;
-      }
-      return this.getUnsonNode(node.children[0]);
-    }
-  }, {
-    key: "getBrotherNode",
-    value: function getBrotherNode(node) {
-      if (node.parent === undefined || node.parent === null) {
-        //このノードはルートノードである
-        return null;
-      } else if (node.parent.children.length - 1 === node.childIndex) {
-        //このノードは末っ子である
-        return null;
-      }
-      var brotherNode = node.parent.children[node.childIndex + 1];
-      return brotherNode;
+      // this.nodes = this.treemap( this.nodes );
     }
   }, {
     key: "setLayoutData",
     value: function setLayoutData() {
       var _this2 = this;
 
-      // var followEledestson = function( node ) {
-      //   var eledestson = _this.getUnsonNode( node );
-      //   return _this.getBrotherNode( eledestson );
-      // }
+      //各子ノードに対して、親からのインデックス番号を保持する
+      this.setChildProperties(this.nodes, 0, true);
 
-      // var followBrother = function( node ) {
-      //   var oldNode = node;
-      //   var youngNode = followEledestson( oldNode );
-
-      //   while( youngNode !== null ) {
-      //     oldNode = youngNode;
-      //     youngNode = followEledestson( oldNode );
-      //   }
-      //   return oldNode;
-      // }
-
-      // var node = followBrother( this.nodes );
-      // var parentNode;
-      // var uncleNode = this.getBrotherNode( node.parent );
-
-      // while( uncleNode !== null ) {
-      //   console.log( uncleNode.data.name );
-      //   if( uncleNode !== null ) {
-      //     node = followBrother( uncleNode );
-      //     console.log(node.data.name);
-      //   }
-      //   uncleNode = this.getBrotherNode( node.parent );
-      // }
-
-      // var parentNode = oldNode.parent;
-      // var uncleNode = this.getBrotherNode( parentNode );
-
-      this.setNodeInfo(this.nodes, 0);
-
+      // 各親ノードに対して、自分の子孫に存在する葉っぱの数を保持する。子→親の順番で保持する。
       this.nodes.leaves().map(function (node) {
         _this2.setLeafLength(node);
       });
 
-      this.nodes.descendants().map(function (node) {
+      //各ノードに対して、縦方向の位置情報（インデックス番号）を割り当てる。親→子の順番で割り当てる。
+      this.nodesList.map(function (node) {
         _this2.setVerticalIndex(node);
       });
+
+      //各ノードのx,y座標を算出
+      this.nodesList.map(function (node) {
+        node.x = node.depth * _this2.columnWidth;
+        node.y = node.verticalIndex * 50;
+      });
     }
+    /*
+    子ノードのレイアウト設定処理。全ての子ノードに対して再帰的に実行する。
+     @param node (Uo) ノード情報
+    @param childIndex (int) 親ノードを基準のした場合のノードの位置インデックス
+    @param isShow (Boolean) ノードを表示する場合はtrue、そうでない場合はfalse
+    */
+
   }, {
-    key: "setNodeInfo",
-    value: function setNodeInfo(node, childIndex) {
-      //各子ノードに対して、親からのインデックス番号を保持する
+    key: "setChildProperties",
+    value: function setChildProperties(node, childIndex, isShow) {
       node.childIndex = childIndex;
+      node.isShow = isShow;
 
       //親ノードの場合は、子の数を保持する
       if (node.children === undefined || node.children === null) {
         node.childrenLength = 0;
-        return;
-      }
-      node.childrenLength = node.children.length;
 
-      for (var i = 0, len = node.children.length; i < len; i++) {
-        this.setNodeInfo(node.children[i], i);
+        //親が閉じられている場合は全ての子ノードを非表示にする
+        var isCloseChildren = node._children !== undefined && node._children.length > 0;
+        if (isCloseChildren) {
+          isShow = false;
+
+          for (var i = 0, len = node._children.length; i < len; i++) {
+            this.setChildProperties(node._children[i], i, isShow);
+          }
+        }
+      } else {
+        node.childrenLength = node.children.length;
+
+        for (var _i = 0, _len = node.children.length; _i < _len; _i++) {
+          this.setChildProperties(node.children[_i], _i, isShow);
+        }
       }
     }
-    // 各親ノードに対して、自分の子孫に存在する葉っぱの数を保持する。子→親の順番で保持する。
-
   }, {
     key: "setLeafLength",
     value: function setLeafLength(node) {
@@ -165,25 +140,18 @@ var DirectoryTree = function () {
         this.setLeafLength(node.parent);
       }
     }
-    //各ノードに対して、縦方向の位置情報（インデックス番号）を割り当てる。親→子の順番で割り当てる。
-
   }, {
     key: "setVerticalIndex",
     value: function setVerticalIndex(node) {
       var verticalIndex = 0;
 
-      //調査用
-      if (node.data.name === 'm') {
-        console.log(node.data.name);
-      }
-
       if (node.parent === undefined || node.parent === null) {
         //ルートノードの場合は一番上に表示する
         verticalIndex = 0;
-      } else if (node.childIndex === 0) {
+      } else if (node.childIndex === 0 || !node.isShow) {
         //長男ノードの場合は親の隣に位置するため、縦方向の位置は同じ
         verticalIndex = node.parent.verticalIndex;
-      } else {
+      } else if (node.parent.children !== null) {
         //兄弟ノードの場合は自分の兄の縦方向の１つ下の位置
         node.parent.children.map(function (brotherNode) {
           if (brotherNode.childIndex === node.childIndex - 1) {
@@ -196,33 +164,106 @@ var DirectoryTree = function () {
       node.verticalIndex = verticalIndex;
     }
   }, {
+    key: "appendBackground",
+    value: function appendBackground() {
+      var $background = this.$svg.append('g');
+
+      for (var i = 0, len = this.svgWidth / this.columnWidth; i < len; i++) {
+        $background.append('rect').attr('width', this.columnWidth).attr('height', this.svgHeight).attr('fill', i % 2 === 0 ? '#EEE' : '#FFF').attr('x', i * this.columnWidth).attr('y', 0);
+      }
+    }
+  }, {
     key: "appendNode",
     value: function appendNode() {
-      this.$svg.attr('width', width + margin.left + margin.right).attr('height', height + margin.top + margin.bottom);
+      var _this = this;
+
+      this.$svg.attr('width', this.svgWidth).attr('height', this.svgHeight);
 
       var g = this.$svg.append('g').attr('transform', 'translate(' + margin.left + ', ' + margin.top + ')');
 
-      var link = g.selectAll('.link').data(this.nodes.descendants().slice(1)).enter().append('path').attr('class', 'link').attr('d', function (d) {
-        return 'M' + d.y + ',' + d.x + ' C' + (d.y + d.parent.y) / 2 + ',' + d.x + ' ' + (d.y + d.parent.y) / 2 + ',' + d.parent.x + ' ' + d.parent.y + ',' + d.parent.x;
+      // let link = g.selectAll('.link')
+      //   .data( this.nodes.descendants().slice(1) )
+      //   .enter()
+      //   .append('path')
+      //   .attr('class', 'link')
+      //   .attr('d', function(d) {
+      //     return 'M' + d.y + ',' + d.x
+      //       + ' C' + (d.y + d.parent.y) / 2 + ',' + d.x
+      //       + ' ' + (d.y + d.parent.y) / 2 + ',' + d.parent.x
+      //       + ' ' + d.parent.y + ',' + d.parent.x;
+      //   });
+
+      this.$nodes = g.selectAll('.node').data(this.nodes.descendants()).enter().append('g').attr('class', function (d) {
+        return 'node' + (d.children ? ' node--branch' : ' node--leaf');
+      }).attr('width', this.columnWidth).attr('opacity', 1).attr('transform', function (d) {
+        return 'translate(' + d.x + ', ' + d.y + ')';
       });
 
-      var node = g.selectAll('.node').data(this.nodes.descendants()).enter().append('g').attr('class', function (d) {
-        return 'node' + (d.children ? ' node--internal' : ' node--leaf');
-      }).attr('transform', function (d) {
-        return 'translate(' + d.y + ', ' + d.x + ')';
-      });
+      this.$nodes.append('circle').attr('r', 3);
 
-      node.append('circle').attr('r', 10);
-
-      node.append('text').attr('dx', function (d) {
-        return d.children ? '-5px' : '5px';
+      this.$nodes.append('text').attr('class', 'name').attr('dx', function (d) {
+        return '5px';
       }).attr('dy', '.35em').attr('x', function (d) {
-        return d.children ? -13 : 13;
+        return 13;
       }).style('text-anchor', function (d) {
-        return d.children ? 'end' : 'start';
+        return 'start';
       }).text(function (d) {
-        return d.data.name + ' leaf: ' + d.leafLength + ' verticalIndex: ' + d.verticalIndex;
+        return d.data.name + ' leaf: ' + d.leafLength + ' vIndex: ' + d.verticalIndex + ' show:' + d.isShow;
       });
+
+      this.$branches = d3.selectAll('.node--branch').on('click', function (d) {
+        _this.toggleChildren(d);
+      });
+    }
+  }, {
+    key: "updateNode",
+    value: function updateNode() {
+      this.$nodes = this.$svg.selectAll('.node').data(this.nodesList).transition().duration(800).attr('opacity', function (d) {
+        return d.isShow ? 1 : 0;
+      }).attr('transform', function (d) {
+        return "translate(" + d.x + ", " + d.y + ")";
+      });
+    }
+  }, {
+    key: "appendLineToChild",
+    value: function appendLineToChild() {
+      var _this3 = this;
+
+      this.$branches.selectAll('.name').each(function (d) {
+        var bbox = this.getBBox();
+        d._nameWidth = bbox.width + bbox.x;
+      });
+
+      var $parents = this.$branches.append('line').attr('stroke', 'black').attr('stroke-width', 1).attr('stroke-dasharray', '1 4').attr('x1', function (d) {
+        return d._nameWidth + 10;
+      }).attr('y1', function (d) {
+        return 0;
+      }).attr('x2', function (d) {
+        return _this3.columnWidth;
+      }).attr('y2', function (d) {
+        return 0;
+      });
+    }
+  }, {
+    key: "toggleChildren",
+    value: function toggleChildren(parentData) {
+      var parentId = parentData.data.id;
+
+      if (parentData.isOpen === undefined) {
+        parentData.isOpen = false;
+      } else {
+        parentData.isOpen = !parentData.isOpen;
+      }
+
+      if (parentData.isOpen) {
+        parentData.children = parentData._children;
+        parentData._children = null;
+      } else {
+        parentData._children = parentData.children;
+        parentData.children = null;
+      }
+      this.setLayoutData();
+      this.updateNode();
     }
   }]);
 
