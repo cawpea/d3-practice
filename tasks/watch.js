@@ -6,8 +6,8 @@ gulp.task('watch', [
 		'copy',
 		'image-min',
 		'css-min',
-		'js-min',
-		'css-normalize'
+		'css-normalize',
+		'babel'
 	],
 	function () {
 	var scssGlob = conf.paths.srcDir + '/**/*.scss';
@@ -16,7 +16,7 @@ gulp.task('watch', [
 
 	var watchers = [];
 	watchers.push( gulp.watch(htmlGlob, ['copy']) );
-	watchers.push( gulp.watch(jsGlob, ['js-min']) );
+	watchers.push( gulp.watch(jsGlob, ['babel']) );
 	watchers.push( gulp.watch(scssGlob, ['css-normalize']) );
 
 	watchers.forEach(function ( watch, index ) {

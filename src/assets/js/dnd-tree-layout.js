@@ -51,13 +51,19 @@ treeJSON = d3.json("/data/dnd-tree-layout.json", function(error, treeData) {
         .size([viewerHeight, viewerWidth]);
 
     // define a d3 diagonal projection for use by the node paths later on.
+    /*
+    pathで曲線を描くための関数を定義
+    参考: http://dataisfun.org/2014/05/24/?p=370
+    */
     var diagonal = d3.svg.diagonal()
         .projection(function(d) {
             return [d.y, d.x];
         });
 
     // A recursive helper function for performing some setup by walking through all nodes
-
+    /*
+    親から子孫すべてに対して特定の関数を実行するための再帰関数
+    */
     function visit(parent, visitFn, childrenFn) {
         if (!parent) return;
 
@@ -73,6 +79,9 @@ treeJSON = d3.json("/data/dnd-tree-layout.json", function(error, treeData) {
     }
 
     // Call visit function to establish maxLabelLength
+    /*
+    ノードの総数、ノード名の最大文字数を取得
+    */
     visit(treeData, function(d) {
         totalNodes++;
         maxLabelLength = Math.max(d.name.length, maxLabelLength);
@@ -83,7 +92,9 @@ treeJSON = d3.json("/data/dnd-tree-layout.json", function(error, treeData) {
 
 
     // sort the tree according to the node names
-
+    /*
+    JSONをソートするための関数
+    */
     function sortTree() {
         tree.sort(function(a, b) {
             return b.name.toLowerCase() < a.name.toLowerCase() ? 1 : -1;
@@ -93,7 +104,9 @@ treeJSON = d3.json("/data/dnd-tree-layout.json", function(error, treeData) {
     sortTree();
 
     // TODO: Pan function, can be better implemented.
-
+    /*
+    未確認
+    */
     function pan(domNode, direction) {
         var speed = panSpeed;
         if (panTimer) {
@@ -121,33 +134,57 @@ treeJSON = d3.json("/data/dnd-tree-layout.json", function(error, treeData) {
 
     // Define the zoom function for the zoomable tree
 
+    /*
+    ズームイベント発行時に呼ばれる関数。svgGroupの要素に対して、translateとscaleを指定する。
+    */
     function zoom() {
         svgGroup.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
     }
 
 
     // define the zoomListener which calls the zoom function on the "zoom" event constrained within the scaleExtents
+    /*
+    ズーム（拡大、縮小）を行うための設定(d3.behavior.zoom)を行う。scaleExtendで各縮率(最小縮小倍率、最大拡大倍率)を指定する。
+    */
     var zoomListener = d3.behavior.zoom().scaleExtent([0.1, 3]).on("zoom", zoom);
 
+    /*
+    ドラッグ発生時の初期処理
+    d: dataSet
+    domNode: ドラッグ対象のg要素
+    */
     function initiateDrag(d, domNode) {
         draggingNode = d;
+        // ドラッグ対象のゴーストサークルのイベントが発生しないようにする
         d3.select(domNode).select('.ghostCircle').attr('pointer-events', 'none');
+        // すべてのゴーストサークルを表示する（ゴーストサークルはドラッグ時のみ現れる赤い丸）
         d3.selectAll('.ghostCircle').attr('class', 'ghostCircle show');
+        // ドラッグ対象のg要素にclassを付与
         d3.select(domNode).attr('class', 'node activeDrag');
 
+        // ドラッグ対象を最前面に表示するためにドラッグ対象のg要素を一番下に移動する
         svgGroup.selectAll("g.node").sort(function(a, b) { // select the parent and sort the path's
             if (a.id != draggingNode.id) return 1; // a is not the hovered element, send "a" to the back
             else return -1; // a is the hovered element, bring "a" to the front
         });
         // if nodes has children, remove the links and nodes
+        // 
         if (nodes.length > 1) {
             // remove link paths
+            /* 
+            ドラッグ対象＋子孫のnodesデータを元に枝となるpathの座標データを作成。
+            参考: http://dataisfun.org/2014/05/28/?p=393
+             */
             links = tree.links(nodes);
+
+            /* 全てのpathから子孫にあたるpathのみを検索し、削除する（nodePathsに保持しておく） */
             nodePaths = svgGroup.selectAll("path.link")
                 .data(links, function(d) {
                     return d.target.id;
                 }).remove();
+
             // remove child nodes
+            /* 全てのg要素からドラッグ対象のg要素＋子孫のg要素を削除する（nodesExitに保持しておく） */
             nodesExit = svgGroup.selectAll("g.node")
                 .data(nodes, function(d) {
                     return d.id;
@@ -160,7 +197,10 @@ treeJSON = d3.json("/data/dnd-tree-layout.json", function(error, treeData) {
         }
 
         // remove parent link
+        // ドラッグ対象のノードの親ノード情報を取得（親ノードの子孫全ての情報もある）
         parentLink = tree.links(tree.nodes(draggingNode.parent));
+
+        // 親ノードからドラッグ対象のノードに繋がるpathを削除
         svgGroup.selectAll('path.link').filter(function(d, i) {
             if (d.target.id == draggingNode.id) {
                 return true;
@@ -172,21 +212,30 @@ treeJSON = d3.json("/data/dnd-tree-layout.json", function(error, treeData) {
     }
 
     // define the baseSvg, attaching a class for styling and the zoomListener
+    /*
+    svg要素を追加し、幅や高さなどを初期化する。
+    */
     var baseSvg = d3.select("#tree-container").append("svg")
         .attr("width", viewerWidth)
         .attr("height", viewerHeight)
         .attr("class", "overlay")
+        /* ズームを行うための指定。zoomListener(d3.select('svg'))と同義 */
         .call(zoomListener);
 
 
     // Define the drag listeners for drag/drop behaviour of nodes.
+    /*
+    ドラッグ＆ドロップの処理。
+    */
     dragListener = d3.behavior.drag()
         .on("dragstart", function(d) {
+            /* ルートはドラッグ＆ドロップさせない */
             if (d == root) {
                 return;
             }
             dragStarted = true;
             nodes = tree.nodes(d);
+            /* イベントの伝盤をストップする */
             d3.event.sourceEvent.stopPropagation();
             // it's important that we suppress the mouseover event on the node being dragged. Otherwise it will absorb the mouseover event and the underlying node will not detect it d3.select(this).attr('pointer-events', 'none');
         })
@@ -196,10 +245,13 @@ treeJSON = d3.json("/data/dnd-tree-layout.json", function(error, treeData) {
             }
             if (dragStarted) {
                 domNode = this;
+                /* ドラッグ時の初期処理(ドラッグ対象のパス、ノードを非表示にする) */
                 initiateDrag(d, domNode);
             }
 
             // get coords of mouseEvent relative to svg container to allow for panning
+            // パンニングさせるための処理。パンニングとはドラッグ対象を画面端に持って行った時にスクロールさせる事。
+            // ドラッグ時のマウス座標を取得して、画面端にマウスがある場合はスクロールする。
             relCoords = d3.mouse($('svg').get(0));
             if (relCoords[0] < panBoundary) {
                 panTimer = true;
@@ -222,57 +274,82 @@ treeJSON = d3.json("/data/dnd-tree-layout.json", function(error, treeData) {
                 }
             }
 
+            // ドラッグ対象のノードをマウスの位置に合わせて移動する
             d.x0 += d3.event.dy;
             d.y0 += d3.event.dx;
             var node = d3.select(this);
             node.attr("transform", "translate(" + d.y0 + "," + d.x0 + ")");
+
+            /* ドラッグ時に他のノードに近づいた場合は赤い線を表示する */
             updateTempConnector();
         }).on("dragend", function(d) {
             if (d == root) {
                 return;
             }
             domNode = this;
+
+            // ドラッグ終了時に他のノードへ紐づける場合(★selectedNodeはどこで設定している？)
             if (selectedNode) {
                 // now remove the element from the parent, and insert it into the new elements children
+                // 親ノードからドラッグ対象のノードを削除する
                 var index = draggingNode.parent.children.indexOf(draggingNode);
                 if (index > -1) {
                     draggingNode.parent.children.splice(index, 1);
                 }
+
+                // 新たな親ノードが子孫を持っているかどうかで処理を分岐する
                 if (typeof selectedNode.children !== 'undefined' || typeof selectedNode._children !== 'undefined') {
+                    // 親ノードの子孫に追加する(★_children, childrenの使い分けは何のため？)
                     if (typeof selectedNode.children !== 'undefined') {
                         selectedNode.children.push(draggingNode);
                     } else {
                         selectedNode._children.push(draggingNode);
                     }
                 } else {
+                    // 親ノードのchildrenを１番目の子として追加する。
                     selectedNode.children = [];
                     selectedNode.children.push(draggingNode);
                 }
                 // Make sure that the node being added to is expanded so user can see added node is correctly moved
+                // 追加先のノードが展開されていることを確認して、追加されたノードが正しく移動されたことをユーザーに見せてください
+                
+                // ★ 何のためにexpandしているか分からない。コメントアウトしても挙動は変わらない？
                 expand(selectedNode);
+                // ★ 何のためにexpandしているか分からない。コメントアウトしても挙動は変わらない？
                 sortTree();
+                // ドラッグ終了処理。
                 endDrag();
             } else {
+                // ドラッグ終了処理。
                 endDrag();
             }
         });
 
+    // ドラッグ終了処理。
     function endDrag() {
+        // 移動先ノードをnullにする。
         selectedNode = null;
         d3.selectAll('.ghostCircle').attr('class', 'ghostCircle');
+
+        //ドラッグ対象のノードスタイルを元に戻す
         d3.select(domNode).attr('class', 'node');
         // now restore the mouseover event or we won't be able to drag a 2nd time
         d3.select(domNode).select('.ghostCircle').attr('pointer-events', '');
+
         updateTempConnector();
+
         if (draggingNode !== null) {
+            // ノードに合わせてレイアウト情報などを更新
             update(root);
+            // ドラッグ対象を画面中央にする
             centerNode(draggingNode);
+            // ドラッグ対象をnullにする
             draggingNode = null;
         }
     }
 
     // Helper functions for collapsing and expanding nodes.
-
+    // ノードデータの子孫を_childrenに一時退避させる（子孫を非表示にする）
     function collapse(d) {
         if (d.children) {
             d._children = d.children;
@@ -281,6 +358,7 @@ treeJSON = d3.json("/data/dnd-tree-layout.json", function(error, treeData) {
         }
     }
 
+    // ノードデータの一時退避していた子孫を元に戻す
     function expand(d) {
         if (d._children) {
             d.children = d._children;
@@ -289,18 +367,24 @@ treeJSON = d3.json("/data/dnd-tree-layout.json", function(error, treeData) {
         }
     }
 
+    // マウスオーバー時に紐付け線を表示する
     var overCircle = function(d) {
         selectedNode = d;
         updateTempConnector();
     };
+
+    // マウスアウト時に紐付け線を非表示にする
     var outCircle = function(d) {
         selectedNode = null;
         updateTempConnector();
     };
 
     // Function to update the temporary connector indicating dragging affiliation
+    // 接続をドラッグしていることを示す一時コネクタを更新する機能
+    // ゴーストサークルにマウスオーバーした際にドラッグ対象のノードと紐づける赤いpathを表示する
     var updateTempConnector = function() {
         var data = [];
+
         if (draggingNode !== null && selectedNode !== null) {
             // have to flip the source coordinates since we did this for the existing connectors on the original tree
             data = [{
@@ -314,6 +398,7 @@ treeJSON = d3.json("/data/dnd-tree-layout.json", function(error, treeData) {
                 }
             }];
         }
+
         var link = svgGroup.selectAll(".templink").data(data);
 
         link.enter().append("path")
@@ -327,7 +412,7 @@ treeJSON = d3.json("/data/dnd-tree-layout.json", function(error, treeData) {
     };
 
     // Function to center node when clicked/dropped so node doesn't get lost when collapsing/moving with large amount of children.
-
+    // クリック/ドロップするとノードを中央に揃えて機能するため、大量の子を使用して折りたたんだ/移動するときにノードが失われることはありません。
     function centerNode(source) {
         scale = zoomListener.scale();
         x = -source.y0;
@@ -342,7 +427,7 @@ treeJSON = d3.json("/data/dnd-tree-layout.json", function(error, treeData) {
     }
 
     // Toggle children function
-
+    // 子孫の開閉に使用する
     function toggleChildren(d) {
         if (d.children) {
             d._children = d.children;
@@ -355,19 +440,30 @@ treeJSON = d3.json("/data/dnd-tree-layout.json", function(error, treeData) {
     }
 
     // Toggle children on click.
-
+    // ノードクリック時の処理。
     function click(d) {
         if (d3.event.defaultPrevented) return; // click suppressed
+        // 子孫を開閉する
         d = toggleChildren(d);
+        // レイアウトを更新する
         update(d);
+        // クリック対象を画面中央に表示する
         centerNode(d);
     }
 
+    /* 最新のノード状態に合わせて位置や要素を更新する */
     function update(source) {
         // Compute the new height, function counts total children of root node and sets tree height accordingly.
         // This prevents the layout looking squashed when new nodes are made visible or looking sparse when nodes are removed
         // This makes the layout more consistent.
         var levelWidth = [1];
+
+        //階層毎の縦順を算出するための一時オブジェクト
+        var tempNodeDepth = {};
+
+        /*
+        階層毎の数をカウントするための再帰関数。
+        */
         var childCount = function(level, n) {
 
             if (n.children && n.children.length > 0) {
@@ -379,29 +475,45 @@ treeJSON = d3.json("/data/dnd-tree-layout.json", function(error, treeData) {
                 });
             }
         };
+
+        // ルートノードから階層毎のノード数をカウント
         childCount(0, root);
+
+        // 一番ノードが多い階層に合わせてツリーの高さを変更
         var newHeight = d3.max(levelWidth) * 25; // 25 pixels per line  
         tree = tree.size([newHeight, viewerWidth]);
 
         // Compute the new tree layout.
+        // ノードを逆順にしてpath情報を生成
         var nodes = tree.nodes(root).reverse(),
             links = tree.links(nodes);
 
         // Set widths between levels based on maxLabelLength.
+        // 各ノードのy属性に最大文字数 * 深さを設定
         nodes.forEach(function(d) {
             d.y = (d.depth * (maxLabelLength * 10)); //maxLabelLength * 10px
             // alternatively to keep a fixed scale one can set a fixed depth per level
             // Normalize for fixed-depth by commenting out below line
             // d.y = (d.depth * 500); //500px per level.
+
+            // 階層毎の縦順の位置を保存
+            if( tempNodeDepth[d.depth] === undefined ) {
+              tempNodeDepth[d.depth] = 0;
+            }else {
+              tempNodeDepth[d.depth]++;
+            }
+            d.vDepth = tempNodeDepth[d.depth];
         });
 
         // Update the nodes…
+
         node = svgGroup.selectAll("g.node")
             .data(nodes, function(d) {
                 return d.id || (d.id = ++i);
             });
 
         // Enter any new nodes at the parent's previous position.
+        // 新たに親ノードの前に新しいノードを生成する
         var nodeEnter = node.enter().append("g")
             .call(dragListener)
             .attr("class", "node")
@@ -468,7 +580,7 @@ treeJSON = d3.json("/data/dnd-tree-layout.json", function(error, treeData) {
         var nodeUpdate = node.transition()
             .duration(duration)
             .attr("transform", function(d) {
-                return "translate(" + d.y + "," + d.x + ")";
+                return "translate(" + d.y + "," + d.vDepth * 100 + ")";
             });
 
         // Fade the text in
@@ -496,6 +608,7 @@ treeJSON = d3.json("/data/dnd-tree-layout.json", function(error, treeData) {
             });
 
         // Enter any new links at the parent's previous position.
+        // 新しいパスを親ノードの前に挿入する
         link.enter().insert("path", "g")
             .attr("class", "link")
             .attr("d", function(d) {
@@ -510,11 +623,13 @@ treeJSON = d3.json("/data/dnd-tree-layout.json", function(error, treeData) {
             });
 
         // Transition links to their new position.
+        // 各pathをアニメーションさせるためにtransitionを設定し、pathのd属性に曲線(diagonal)を指定
         link.transition()
             .duration(duration)
             .attr("d", diagonal);
 
         // Transition exiting nodes to the parent's new position.
+        // データから消えたパスの削除
         link.exit().transition()
             .duration(duration)
             .attr("d", function(d) {

@@ -458,9 +458,6 @@ treeJSON = d3.json("/data/dnd-tree-layout.json", function(error, treeData) {
         // This makes the layout more consistent.
         var levelWidth = [1];
 
-        //階層毎の縦順を算出するための一時オブジェクト
-        var tempNodeDepth = {};
-
         /*
         階層毎の数をカウントするための再帰関数。
         */
@@ -495,14 +492,6 @@ treeJSON = d3.json("/data/dnd-tree-layout.json", function(error, treeData) {
             // alternatively to keep a fixed scale one can set a fixed depth per level
             // Normalize for fixed-depth by commenting out below line
             // d.y = (d.depth * 500); //500px per level.
-
-            // 階層毎の縦順の位置を保存
-            if( tempNodeDepth[d.depth] === undefined ) {
-              tempNodeDepth[d.depth] = 0;
-            }else {
-              tempNodeDepth[d.depth]++;
-            }
-            d.vDepth = tempNodeDepth[d.depth];
         });
 
         // Update the nodes…
@@ -580,7 +569,7 @@ treeJSON = d3.json("/data/dnd-tree-layout.json", function(error, treeData) {
         var nodeUpdate = node.transition()
             .duration(duration)
             .attr("transform", function(d) {
-                return "translate(" + d.y + "," + d.vDepth * 100 + ")";
+                return "translate(" + d.y + "," + d.x + ")";
             });
 
         // Fade the text in
