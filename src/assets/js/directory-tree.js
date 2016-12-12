@@ -36,7 +36,6 @@ class DirectoryTree {
       _this.setLayoutData();    
       _this.appendBackground();
       _this.appendNode();
-      _this.appendLineToChild();
     });
   }
   setTreeData() {
@@ -213,9 +212,45 @@ class DirectoryTree {
         return d.data.name + ' leaf: ' + d.leafLength + ' vIndex: ' + d.verticalIndex + ' show:' + d.isShow;
       });
 
+    this.$foreigns = this.$nodes.append('foreignObject')
+      .attr('width', this.columnWidth )
+      .attr('height', 30)
+      .attr('x', 0)
+      .attr('y', 0);
+
+    this.$inputWrapper = this.$foreigns.append('xhtml:div');
+    this.$inputWrapper.append('xhtml:input')
+      .attr('type', 'text')
+      .attr('value', (d) => {
+        return d.data.name;
+      });
+
     this.$branches = d3.selectAll('.node--branch')
       .on('click', function(d) {
         _this.toggleChildren(d);
+      });
+
+    this.appendLineToChild();
+    this.appendToggleChildren();
+  }
+  appendToggleChildren() {
+    var circleRadius = 8;
+
+    this.$nodeToggles = this.$branches.append('g')
+      .attr('class', 'node-toggle')
+      .attr('transform', `translate(${this.columnWidth - circleRadius * 2}, 0)`);
+
+    var $circles = this.$nodeToggles.append('circle')
+      .attr('r', circleRadius);
+
+    var $texts = this.$nodeToggles.append('text')
+      .attr('class', 'node-toggle-label')
+      .attr('width', circleRadius * 2)
+      .attr('height', circleRadius * 2)
+      .attr('text-anchor', 'middle')
+      .attr('dy', 4)
+      .text((d) => {
+        return d._children ? '+' : '-';
       });
   }
   updateNode() {
@@ -235,6 +270,14 @@ class DirectoryTree {
       })
       .attr('transform', (d) => {
         return `translate(${d.x}, ${d.y})`;
+      });
+
+      this.updateToggleChildren();
+  }
+  updateToggleChildren() {
+    this.$nodeToggles.selectAll('text')
+      .text((d) => {
+        return d._children ? '+' : '-';
       });
   }
   appendLineToChild() {
