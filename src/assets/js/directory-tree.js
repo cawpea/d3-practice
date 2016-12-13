@@ -5,6 +5,13 @@ var margin = {
   left: 5
 };
 
+// 内部データ更新時のメソッド識別値
+const NODE_METHOD = {
+  UPDATE_NAME: 'updateName',
+  TOGGLE_CHILDREN: 'toggleChildren',
+  DELETE: 'delete'
+};
+
 class DirectoryTree {
   constructor(root, wrapper) {
     this.vDepth = 0;
@@ -19,18 +26,33 @@ class DirectoryTree {
     this.columnWidth = 250;
   }
   init() {
-    this.getJsonData();
-  }
-  getJsonData() {
-    var _this = this;
-    d3.json('/data/directory-tree.json', function(error, data) {
-      _this.treeData = data;
-      _this.setTreeData();
-      _this.setLayoutData();    
-      _this.appendBackground();
-      _this.appendContainer();
-      _this.appendNode();
+    this.getJsonData((data) => {
+      this.treeData = data;
+      this.bindEvents();
+      this.setTreeData();
+      this.setLayoutData();    
+      this.appendBackground();
+      this.appendContainer();
+      this.appendNode();
     });
+  }
+  getJsonData(callback) {
+    d3.json('/data/directory-tree.json', (error, data) => {
+      if (error) throw error;
+      callback(data);
+    });
+  }
+  bindEvents() {
+    document.addEventListener('keydown', (e) => {
+      this.onKeydownView(e);
+    });
+  }
+  onKeydownView(e) {
+    let isDeleteKey = e.which === 8;
+    let selectedNode = this.$nodeWrap.select('.node.is-selected').data();
+    this.deleteNode( selectedNode );
+  }
+  deleteNode(node) {
   }
   setTreeData() {
     this.nodes = d3.hierarchy( this.treeData, function(d) {
@@ -197,6 +219,9 @@ class DirectoryTree {
       .on('click', function(d) {
         _this.$nodes.classed('is-selected', false);
         d3.select(this).classed('is-selected', true);
+      })
+      .on('dblclick', function(d) {
+        _this.changeNodeTextbox( d3.select(this), d );
       });
 
     //背景に敷くためのrect要素を先に要素追加しておき、後でプロパティを設定する
@@ -221,9 +246,6 @@ class DirectoryTree {
       })
       .text(function(d) {
         return d.data.name;
-      })
-      .on('dblclick', function(d) {
-        _this.changeNodeTextbox( d3.select(this), d );
       });
 
     //名前用text要素からサイズをキャッシュしておき、他要素のレイアウトの計算に使用する。
@@ -241,7 +263,6 @@ class DirectoryTree {
     .attr('width', this.columnWidth - 5)
     .attr('x', 0)
     .attr('y', (d) => {
-      console.log(d._nameHeight);
       return -(d._nameHeight / 2);
     })
     .attr('fill', 'transparent');
@@ -252,7 +273,27 @@ class DirectoryTree {
     this.appendLineToChild();
     this.appendToggleChildren();
   }
-  updateNode() {
+  updateNode( param ) {
+
+    if( param ) {
+      switch( param.type ) {
+        case NODE_METHOD.UPDATE_NAME:
+          // 指定されたパラメータを元に内部データを更新する
+          this.nodeList.map( (node) => {
+            if( param.data.id !== node.data.id ) return true;
+            for( let key in param.data ) {
+              node.data[key] = param.data[key];
+            }
+          });
+          break;
+        case NODE_METHOD.TOGGLE_CHILDREN:
+          // ノードレイアウト情報を更新する。
+          this.setLayoutData();
+          break;
+      }
+    }
+
+    // 内部データを元に各ノードの状態を更新する
     this.$nodes.data( this.nodeList )
       .classed('is-close', false)
       .transition()
@@ -290,10 +331,16 @@ class DirectoryTree {
       .attr('style', `left:${d.x}px; top:${d.y}px; width:${this.columnWidth - 6}px; margin-top:10px;`)
       .on('blur', function() {
         //テキストボックスからフォーカスが外れた場合は元のラベルを更新する
-        d.data.name = d3.select(this).node().value;
         $node.classed('is-editing', false);
         _this.$svgWrap.selectAll('.node-textbox').remove();
-        _this.updateNode();
+
+        _this.updateNode({
+          type: NODE_METHOD.UPDATE_NAME,
+          data: {
+            id: d.data.id,
+            name: d3.select(this).node().value
+          }
+        });
       });
 
     $inputNode.node().focus();
@@ -366,9 +413,6 @@ class DirectoryTree {
         return 0;
       });
   }
-  updateLineToChild() {
-    console.log( this.$branchLines );
-  }
   toggleChildren( parentData ) {
     let parentId = parentData.data.id;
 
@@ -385,8 +429,10 @@ class DirectoryTree {
       parentData._children = parentData.children;
       parentData.children = null;
     }
-    this.setLayoutData();
-    this.updateNode();
+
+    this.updateNode({
+      type: NODE_METHOD.TOGGLE_CHILDREN
+    });
   }
 }
 

@@ -11,6 +11,13 @@ var margin = {
   left: 5
 };
 
+// 内部データ更新時のメソッド識別値
+var NODE_METHOD = {
+  UPDATE_NAME: 'updateName',
+  TOGGLE_CHILDREN: 'toggleChildren',
+  DELETE: 'delete'
+};
+
 var DirectoryTree = function () {
   function DirectoryTree(root, wrapper) {
     _classCallCheck(this, DirectoryTree);
@@ -30,21 +37,45 @@ var DirectoryTree = function () {
   _createClass(DirectoryTree, [{
     key: 'init',
     value: function init() {
-      this.getJsonData();
+      var _this2 = this;
+
+      this.getJsonData(function (data) {
+        _this2.treeData = data;
+        _this2.bindEvents();
+        _this2.setTreeData();
+        _this2.setLayoutData();
+        _this2.appendBackground();
+        _this2.appendContainer();
+        _this2.appendNode();
+      });
     }
   }, {
     key: 'getJsonData',
-    value: function getJsonData() {
-      var _this = this;
+    value: function getJsonData(callback) {
       d3.json('/data/directory-tree.json', function (error, data) {
-        _this.treeData = data;
-        _this.setTreeData();
-        _this.setLayoutData();
-        _this.appendBackground();
-        _this.appendContainer();
-        _this.appendNode();
+        if (error) throw error;
+        callback(data);
       });
     }
+  }, {
+    key: 'bindEvents',
+    value: function bindEvents() {
+      var _this3 = this;
+
+      document.addEventListener('keydown', function (e) {
+        _this3.onKeydownView(e);
+      });
+    }
+  }, {
+    key: 'onKeydownView',
+    value: function onKeydownView(e) {
+      var isDeleteKey = e.which === 8;
+      var selectedNode = this.$nodeWrap.select('.node.is-selected').data();
+      this.deleteNode(selectedNode);
+    }
+  }, {
+    key: 'deleteNode',
+    value: function deleteNode(node) {}
   }, {
     key: 'setTreeData',
     value: function setTreeData() {
@@ -69,24 +100,24 @@ var DirectoryTree = function () {
   }, {
     key: 'setLayoutData',
     value: function setLayoutData() {
-      var _this2 = this;
+      var _this4 = this;
 
       //各子ノードに対して、親からのインデックス番号を保持する
       this.setChildProperties(this.nodes, 0, true);
 
       // 各親ノードに対して、自分の子孫に存在する葉っぱの数を保持する。子→親の順番で保持する。
       this.nodes.leaves().map(function (node) {
-        _this2.setLeafLength(node);
+        _this4.setLeafLength(node);
       });
 
       //各ノードに対して、縦方向の位置情報（インデックス番号）を割り当てる。親→子の順番で割り当てる。
       this.nodeList.map(function (node) {
-        _this2.setVerticalIndex(node);
+        _this4.setVerticalIndex(node);
       });
 
       //各ノードのx,y座標を算出
       this.nodeList.map(function (node) {
-        node.x = node.depth * _this2.columnWidth;
+        node.x = node.depth * _this4.columnWidth;
         node.y = node.verticalIndex * 50;
       });
     }
@@ -208,6 +239,8 @@ var DirectoryTree = function () {
       }).on('click', function (d) {
         _this.$nodes.classed('is-selected', false);
         d3.select(this).classed('is-selected', true);
+      }).on('dblclick', function (d) {
+        _this.changeNodeTextbox(d3.select(this), d);
       });
 
       //背景に敷くためのrect要素を先に要素追加しておき、後でプロパティを設定する
@@ -225,8 +258,6 @@ var DirectoryTree = function () {
         return 'start';
       }).text(function (d) {
         return d.data.name;
-      }).on('dblclick', function (d) {
-        _this.changeNodeTextbox(d3.select(this), d);
       });
 
       //名前用text要素からサイズをキャッシュしておき、他要素のレイアウトの計算に使用する。
@@ -240,7 +271,6 @@ var DirectoryTree = function () {
       $nodesBg.attr('height', function (d) {
         return d._nameHeight;
       }).attr('class', 'node-bg').attr('width', this.columnWidth - 5).attr('x', 0).attr('y', function (d) {
-        console.log(d._nameHeight);
         return -(d._nameHeight / 2);
       }).attr('fill', 'transparent');
 
@@ -252,7 +282,27 @@ var DirectoryTree = function () {
     }
   }, {
     key: 'updateNode',
-    value: function updateNode() {
+    value: function updateNode(param) {
+
+      if (param) {
+        switch (param.type) {
+          case NODE_METHOD.UPDATE_NAME:
+            // 指定されたパラメータを元に内部データを更新する
+            this.nodeList.map(function (node) {
+              if (param.data.id !== node.data.id) return true;
+              for (var key in param.data) {
+                node.data[key] = param.data[key];
+              }
+            });
+            break;
+          case NODE_METHOD.TOGGLE_CHILDREN:
+            // ノードレイアウト情報を更新する。
+            this.setLayoutData();
+            break;
+        }
+      }
+
+      // 内部データを元に各ノードの状態を更新する
       this.$nodes.data(this.nodeList).classed('is-close', false).transition().on('end', function (d) {
         // アニメーションが終わった後にノードを非表示にする
         if (!d.isShow) {
@@ -280,10 +330,16 @@ var DirectoryTree = function () {
       //テキストボックスを生成し、編集状態にする
       var $inputNode = this.$svgWrap.append('input').attr('type', 'text').attr('value', d.data.name).attr('class', 'node-textbox').attr('style', 'left:' + d.x + 'px; top:' + d.y + 'px; width:' + (this.columnWidth - 6) + 'px; margin-top:10px;').on('blur', function () {
         //テキストボックスからフォーカスが外れた場合は元のラベルを更新する
-        d.data.name = d3.select(this).node().value;
         $node.classed('is-editing', false);
         _this.$svgWrap.selectAll('.node-textbox').remove();
-        _this.updateNode();
+
+        _this.updateNode({
+          type: NODE_METHOD.UPDATE_NAME,
+          data: {
+            id: d.data.id,
+            name: d3.select(this).node().value
+          }
+        });
       });
 
       $inputNode.node().focus();
@@ -291,7 +347,7 @@ var DirectoryTree = function () {
   }, {
     key: 'appendTextboxForNode',
     value: function appendTextboxForNode() {
-      var _this3 = this;
+      var _this5 = this;
 
       var textboxSize = {
         width: this.columnWidth,
@@ -302,20 +358,20 @@ var DirectoryTree = function () {
       this.$svgWrap.selectAll('.node-textbox').remove();
 
       this.nodeList.map(function (node) {
-        var $input = _this3.$svgWrap.append('input').attr('class', 'node-textbox node-textbox-' + node.data.id).attr('data-id', node.data.id).attr('type', 'text').attr('style', 'left:' + node.x + 'px; top:' + (node.y + 6) + 'px; width:' + textboxSize.width + 'px; height:' + textboxSize.height + 'px;').attr('value', node.data.name);
+        var $input = _this5.$svgWrap.append('input').attr('class', 'node-textbox node-textbox-' + node.data.id).attr('data-id', node.data.id).attr('type', 'text').attr('style', 'left:' + node.x + 'px; top:' + (node.y + 6) + 'px; width:' + textboxSize.width + 'px; height:' + textboxSize.height + 'px;').attr('value', node.data.name);
 
-        _this3.$nodeTextboxes.push($input);
+        _this5.$nodeTextboxes.push($input);
       });
     }
   }, {
     key: 'appendToggleChildren',
     value: function appendToggleChildren() {
-      var _this4 = this;
+      var _this6 = this;
 
       var circleRadius = 8;
 
       this.$nodeToggles = this.$branches.append('g').attr('class', 'node-toggle').attr('transform', 'translate(' + (this.columnWidth - circleRadius * 2) + ', 0)').on('click', function (d) {
-        _this4.toggleChildren(d);
+        _this6.toggleChildren(d);
       });
 
       var $circles = this.$nodeToggles.append('circle').attr('r', circleRadius);
@@ -334,22 +390,17 @@ var DirectoryTree = function () {
   }, {
     key: 'appendLineToChild',
     value: function appendLineToChild() {
-      var _this5 = this;
+      var _this7 = this;
 
       this.$branchLines = this.$branches.append('line').attr('stroke', 'black').attr('stroke-width', 1).attr('stroke-dasharray', '1 4').attr('x1', function (d) {
         return d._nameWidth + 10;
       }).attr('y1', function (d) {
         return 0;
       }).attr('x2', function (d) {
-        return _this5.columnWidth;
+        return _this7.columnWidth;
       }).attr('y2', function (d) {
         return 0;
       });
-    }
-  }, {
-    key: 'updateLineToChild',
-    value: function updateLineToChild() {
-      console.log(this.$branchLines);
     }
   }, {
     key: 'toggleChildren',
@@ -369,8 +420,10 @@ var DirectoryTree = function () {
         parentData._children = parentData.children;
         parentData.children = null;
       }
-      this.setLayoutData();
-      this.updateNode();
+
+      this.updateNode({
+        type: NODE_METHOD.TOGGLE_CHILDREN
+      });
     }
   }]);
 
