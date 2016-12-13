@@ -4,24 +4,32 @@
   <meta charset="UTF-8">
   <title>Document</title>
   <style>
+  .tree-wrap {
+    position: relative;
+  }
   .node.is-close {
     display: none;
   }
   .node text {
     font: 12px sans-serif;
   }
-  .node input {
-    margin-left: 15px;
-    width: 80%;
+  .node text.is-editing {
+    display: none;
   }
   .node-toggle {
     fill: #AAA;
+    cursor: pointer;
   }
   .node-toggle-label {
     fill: #FFF;
   }
   .node--internal text {
     text-shadow: 0 1px 0 #FFF, 0 #FFF, 1px 0 0 #FFF, -1px 0 0 #FFF;
+  }
+  .node-textbox {
+    position: absolute;
+    top: 0;
+    left: 0;
   }
   .link {
     fill: none;
@@ -32,7 +40,9 @@
 </head>
 <body>
   <h1>Directory Tree</h1/>
-  <svg id="tree"></svg>
+  <div class="tree-wrap">
+    <svg id="tree"></svg>
+  </div>
   <script src="https://d3js.org/d3.v4.min.js"></script>
   <script src="/assets/js/directory-tree.js"></script>
 </body>

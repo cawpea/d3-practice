@@ -1,11 +1,3 @@
-var flatData = [
-  { "name": "Top Level", "parent": null },
-  { "name": "Level 2: A", "parent": "Top Level" },
-  { "name": "Level 2: B", "parent": "Top Level" },
-  { "name": "Son of A", "parent": "Level 2: A" },
-  { "name": "Daughter of A", "parent": "Level 2: A" }
-];
-
 var margin = {
   top: 20,
   right: 90,
@@ -14,11 +6,12 @@ var margin = {
 };
 
 class DirectoryTree {
-  constructor(root) {
+  constructor(root, wrapper) {
     this.vDepth = 0;
     // this.treemap = d3.tree()
     //   .size([viewWidth, viewHeight]);
 
+    this.$svgWrap = d3.select(wrapper);
     this.$svg = d3.select(root);
 
     this.svgWidth = 1000;
@@ -35,6 +28,7 @@ class DirectoryTree {
       _this.setTreeData();
       _this.setLayoutData();    
       _this.appendBackground();
+      _this.appendContainer();
       _this.appendNode();
     });
   }
@@ -42,9 +36,14 @@ class DirectoryTree {
     this.nodes = d3.hierarchy( this.treeData, function(d) {
       return d.children;
     });
-    this.nodesList = this.nodes.descendants();
+    this.nodeList = this.nodes.descendants();
 
-    this.columnCount = d3.max( this.nodesList, function(d) {
+    this.nodeList = this.nodeList.map((d) => {
+      d.isShow = true;
+      return d;
+    });
+
+    this.columnCount = d3.max( this.nodeList, function(d) {
       return d.depth;
     }) + 1;
 
@@ -62,12 +61,12 @@ class DirectoryTree {
     });
 
     //各ノードに対して、縦方向の位置情報（インデックス番号）を割り当てる。親→子の順番で割り当てる。
-    this.nodesList.map((node) => {
+    this.nodeList.map((node) => {
       this.setVerticalIndex(node);
     });
 
     //各ノードのx,y座標を算出
-    this.nodesList.map((node) => {
+    this.nodeList.map((node) => {
       node.x = node.depth * this.columnWidth;
       node.y = node.verticalIndex * 50;
     });
@@ -158,15 +157,17 @@ class DirectoryTree {
         .attr('y', 0);
     }
   }
-  appendNode() {
-    var _this = this;
-
+  appendContainer() {
     this.$svg
       .attr('width', this.svgWidth )
       .attr('height', this.svgHeight );
 
-    let g = this.$svg.append('g')
+    this.$nodeWrap = this.$svg.append('g')
       .attr('transform', 'translate(' + margin.left + ', ' + margin.top + ')');
+
+  }
+  appendNode() {
+    var _this = this;
 
     // let link = g.selectAll('.link')
     //   .data( this.nodes.descendants().slice(1) )
@@ -180,7 +181,7 @@ class DirectoryTree {
     //       + ' ' + d.parent.y + ',' + d.parent.x;
     //   });
 
-    this.$nodes = g.selectAll('.node')
+    this.$nodes = this.$nodeWrap.selectAll('.node')
       .data(this.nodes.descendants())
       .enter()
       .append('g')
@@ -197,7 +198,7 @@ class DirectoryTree {
       .attr('r', 3);
 
     this.$nodes.append('text')
-      .attr('class', 'name')
+      .attr('class', 'node-name')
       .attr('dx', function(d) {
         return '5px';
       })
@@ -209,53 +210,20 @@ class DirectoryTree {
         return 'start';
       })
       .text(function(d) {
-        return d.data.name + ' leaf: ' + d.leafLength + ' vIndex: ' + d.verticalIndex + ' show:' + d.isShow;
-      });
-
-    this.$foreigns = this.$nodes.append('foreignObject')
-      .attr('width', this.columnWidth )
-      .attr('height', 30)
-      .attr('x', 0)
-      .attr('y', 0);
-
-    this.$inputWrapper = this.$foreigns.append('xhtml:div');
-    this.$inputWrapper.append('xhtml:input')
-      .attr('type', 'text')
-      .attr('value', (d) => {
         return d.data.name;
+      })
+      .on('dblclick', function(d) {
+        _this.changeNodeTextbox( d3.select(this), d );
       });
 
-    this.$branches = d3.selectAll('.node--branch')
-      .on('click', function(d) {
-        _this.toggleChildren(d);
-      });
+    this.$branches = d3.selectAll('.node--branch');
 
     this.appendLineToChild();
     this.appendToggleChildren();
   }
-  appendToggleChildren() {
-    var circleRadius = 8;
-
-    this.$nodeToggles = this.$branches.append('g')
-      .attr('class', 'node-toggle')
-      .attr('transform', `translate(${this.columnWidth - circleRadius * 2}, 0)`);
-
-    var $circles = this.$nodeToggles.append('circle')
-      .attr('r', circleRadius);
-
-    var $texts = this.$nodeToggles.append('text')
-      .attr('class', 'node-toggle-label')
-      .attr('width', circleRadius * 2)
-      .attr('height', circleRadius * 2)
-      .attr('text-anchor', 'middle')
-      .attr('dy', 4)
-      .text((d) => {
-        return d._children ? '+' : '-';
-      });
-  }
   updateNode() {
-    this.$nodes = this.$svg.selectAll('.node')
-      .data( this.nodesList )
+    this.$nodes = this.$nodeWrap.selectAll('.node')
+      .data( this.nodeList )
       .classed('is-close', false)
       .transition()
       .on('end', function(d) {
@@ -272,7 +240,76 @@ class DirectoryTree {
         return `translate(${d.x}, ${d.y})`;
       });
 
-      this.updateToggleChildren();
+    this.$nodes.selectAll('.node-name')
+      .text((d) => {
+        return d.data.name;
+      });
+
+    this.updateToggleChildren();
+  }
+  changeNodeTextbox($node, d) {
+    let _this = this;
+
+    $node.classed('is-editing', true);
+
+    //テキストボックスを生成し、編集状態にする
+    let $inputNode = this.$svgWrap.append('input')
+      .attr('type', 'text')
+      .attr('value', d.data.name)
+      .attr('class', 'node-textbox')
+      .attr('style', `left:${d.x}px; top:${d.y}px; width:${this.columnWidth - 6}px; margin-top:10px;`)
+      .on('blur', function() {
+        //テキストボックスからフォーカスが外れた場合は元のラベルを更新する
+        d.data.name = d3.select(this).node().value;
+        $node.classed('is-editing', false);
+        _this.$svgWrap.selectAll('.node-textbox').remove();
+        _this.updateNode();
+      });
+
+    $inputNode.node().focus();
+  }
+  appendTextboxForNode() {
+    let textboxSize = {
+      width: this.columnWidth,
+      height: 20
+    };
+
+    this.$nodeTextboxes = [];
+    this.$svgWrap.selectAll('.node-textbox').remove();
+
+    this.nodeList.map((node) => {
+      let $input = this.$svgWrap.append('input')
+        .attr('class', 'node-textbox node-textbox-' + node.data.id)
+        .attr('data-id', node.data.id)
+        .attr('type', 'text')
+        .attr('style', `left:${node.x}px; top:${node.y + 6}px; width:${textboxSize.width}px; height:${textboxSize.height}px;`)
+        .attr('value', node.data.name);
+
+      this.$nodeTextboxes.push( $input );
+    });
+  }
+  appendToggleChildren() {
+    let circleRadius = 8;
+
+    this.$nodeToggles = this.$branches.append('g')
+      .attr('class', 'node-toggle')
+      .attr('transform', `translate(${this.columnWidth - circleRadius * 2}, 0)`)
+      .on('click', (d) => {
+        this.toggleChildren(d);
+      });
+
+    let $circles = this.$nodeToggles.append('circle')
+      .attr('r', circleRadius);
+
+    let $texts = this.$nodeToggles.append('text')
+      .attr('class', 'node-toggle-label')
+      .attr('width', circleRadius * 2)
+      .attr('height', circleRadius * 2)
+      .attr('text-anchor', 'middle')
+      .attr('dy', 4)
+      .text((d) => {
+        return d._children ? '+' : '-';
+      });
   }
   updateToggleChildren() {
     this.$nodeToggles.selectAll('text')
@@ -281,12 +318,12 @@ class DirectoryTree {
       });
   }
   appendLineToChild() {
-    this.$branches.selectAll('.name').each(function(d) {
+    this.$branches.selectAll('.node-name').each(function(d) {
       let bbox = this.getBBox();
       d._nameWidth = bbox.width + bbox.x;
     });
 
-    let $parents = this.$branches
+    this.$branchLines = this.$branches
       .append('line')
       .attr('stroke', 'black')
       .attr('stroke-width', 1)
@@ -303,6 +340,9 @@ class DirectoryTree {
       .attr('y2', (d) => {
         return 0;
       });
+  }
+  updateLineToChild() {
+    console.log( this.$branchLines );
   }
   toggleChildren( parentData ) {
     let parentId = parentData.data.id;
@@ -326,5 +366,5 @@ class DirectoryTree {
 }
 
 (function() {
-  new DirectoryTree('#tree').init();
+  new DirectoryTree('#tree', '.tree-wrap').init();
 }());
