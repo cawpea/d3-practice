@@ -200,15 +200,24 @@ var DirectoryTree = function () {
       //       + ' ' + d.parent.y + ',' + d.parent.x;
       //   });
 
+      //ノード全体をラップするgroup要素
       this.$nodes = this.$nodeWrap.selectAll('.node').data(this.nodes.descendants()).enter().append('g').attr('class', function (d) {
         return 'node' + (d.children ? ' node--branch' : ' node--leaf');
       }).attr('width', this.columnWidth).attr('opacity', 1).attr('transform', function (d) {
         return 'translate(' + d.x + ', ' + d.y + ')';
+      }).on('click', function (d) {
+        _this.$nodes.classed('is-selected', false);
+        d3.select(this).classed('is-selected', true);
       });
 
-      this.$nodes.append('circle').attr('r', 3);
+      //背景に敷くためのrect要素を先に要素追加しておき、後でプロパティを設定する
+      var $nodesBg = this.$nodes.append('rect');
 
-      this.$nodes.append('text').attr('class', 'node-name').attr('dx', function (d) {
+      //ノード名の左側に表示するアイコン
+      var $nodeHead = this.$nodes.append('circle').attr('r', 3);
+
+      //ノード名用text要素
+      var $nodeText = this.$nodes.append('text').attr('class', 'node-name').attr('dx', function (d) {
         return '5px';
       }).attr('dy', '.35em').attr('x', function (d) {
         return 13;
@@ -220,7 +229,23 @@ var DirectoryTree = function () {
         _this.changeNodeTextbox(d3.select(this), d);
       });
 
-      this.$branches = d3.selectAll('.node--branch');
+      //名前用text要素からサイズをキャッシュしておき、他要素のレイアウトの計算に使用する。
+      this.$nodes.each(function (d) {
+        var bbox = this.getBBox();
+        d._nameWidth = bbox.width + bbox.x;
+        d._nameHeight = bbox.height - bbox.y;
+      });
+
+      //背景用rect要素のプロパティを設定
+      $nodesBg.attr('height', function (d) {
+        return d._nameHeight;
+      }).attr('class', 'node-bg').attr('width', this.columnWidth - 5).attr('x', 0).attr('y', function (d) {
+        console.log(d._nameHeight);
+        return -(d._nameHeight / 2);
+      }).attr('fill', 'transparent');
+
+      //親ノードのみをキャッシュ
+      this.$branches = d3.selectAll('.node');
 
       this.appendLineToChild();
       this.appendToggleChildren();
@@ -228,7 +253,7 @@ var DirectoryTree = function () {
   }, {
     key: 'updateNode',
     value: function updateNode() {
-      this.$nodes = this.$nodeWrap.selectAll('.node').data(this.nodeList).classed('is-close', false).transition().on('end', function (d) {
+      this.$nodes.data(this.nodeList).classed('is-close', false).transition().on('end', function (d) {
         // アニメーションが終わった後にノードを非表示にする
         if (!d.isShow) {
           d3.select(this).classed('is-close', true);
@@ -310,11 +335,6 @@ var DirectoryTree = function () {
     key: 'appendLineToChild',
     value: function appendLineToChild() {
       var _this5 = this;
-
-      this.$branches.selectAll('.node-name').each(function (d) {
-        var bbox = this.getBBox();
-        d._nameWidth = bbox.width + bbox.x;
-      });
 
       this.$branchLines = this.$branches.append('line').attr('stroke', 'black').attr('stroke-width', 1).attr('stroke-dasharray', '1 4').attr('x1', function (d) {
         return d._nameWidth + 10;
