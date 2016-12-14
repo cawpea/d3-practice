@@ -309,7 +309,7 @@ class DirectoryTree {
           }
 
           // 確認処理を行い、キャンセルした場合は処理を中断する。
-          let hasChildren = deleteNode.children && deleteNode.children.length > 0;
+          let hasChildren = (deleteNode.children && deleteNode.children.length > 0) || (deleteNode._children && deleteNode._children.length > 0);
           let doConfirm = param.confirm && typeof param.confirm === 'function';
           if( hasChildren && doConfirm && !param.confirm() ) {
             return;

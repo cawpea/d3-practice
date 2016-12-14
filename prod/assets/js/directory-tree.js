@@ -325,7 +325,7 @@ var DirectoryTree = function () {
               }
 
               // 確認処理を行い、キャンセルした場合は処理を中断する。
-              var hasChildren = deleteNode.children && deleteNode.children.length > 0;
+              var hasChildren = deleteNode.children && deleteNode.children.length > 0 || deleteNode._children && deleteNode._children.length > 0;
               var doConfirm = param.confirm && typeof param.confirm === 'function';
               if (hasChildren && doConfirm && !param.confirm()) {
                 return {
