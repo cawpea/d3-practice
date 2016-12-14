@@ -220,13 +220,10 @@ class DirectoryTree {
         return 'translate(' + (d._x) + ', ' + (d._y) + ')';
       })
       .on('click', function(d) {
-        _this.$nodes.each(function(d) {
-          d3.select(this).classed('is-selected', false);
-        });
-        d3.select(this).classed('is-selected', true);
+        _this.setSelectedNodes([d]);
       })
       .on('dblclick', function(d) {
-        _this.changeNodeTextbox( d3.select(this), d );
+        _this.editNodeName( d3.select(this), d );
       });
 
     //背景に敷くためのrect要素を先に要素追加しておき、後でプロパティを設定する
@@ -367,12 +364,31 @@ class DirectoryTree {
 
     this.updateToggleChildren();
   }
-  deleteSelectedNode() {
+  setSelectedNodes( selectNodes ) {
+    let selectIds = [];
+    selectNodes.map((d) => {
+      selectIds.push( d.data.id );
+    });
+
+    this.$nodes.each(function(d) {
+      let $node = d3.select(this);
+      let isSelected = selectIds.indexOf(d.data.id) > -1;
+      $node.classed('is-selected', isSelected);
+    });
+  }
+  getSelectedNodes() {
     let selectedNodes = this.$nodeWrap.select('.node.is-selected').data();
     if( selectedNodes === undefined && selectedData.length === 0 ) {
-      return;
+      return null;
     }
-    this.deleteNode( selectedNodes[0] );
+    return selectedNodes;
+  }
+  deleteSelectedNode() {
+    let selectedNodes = this.getSelectedNodes();
+
+    for( let i = 0, len = selectedNodes.length; i < len; i++ ) {
+      this.deleteNode( selectedNodes[i] );
+    }
   }
   deleteNode(node) {
     //編集中には削除処理を実行しない
@@ -390,7 +406,7 @@ class DirectoryTree {
       }
     });
   }
-  changeNodeTextbox($node, d) {
+  editNodeName($node, d) {
     let _this = this;
 
     d._isEdit = true;

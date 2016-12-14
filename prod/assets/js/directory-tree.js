@@ -242,12 +242,9 @@ var DirectoryTree = function () {
       }).attr('width', this.columnWidth).attr('opacity', 1).attr('transform', function (d) {
         return 'translate(' + d._x + ', ' + d._y + ')';
       }).on('click', function (d) {
-        _this.$nodes.each(function (d) {
-          d3.select(this).classed('is-selected', false);
-        });
-        d3.select(this).classed('is-selected', true);
+        _this.setSelectedNodes([d]);
       }).on('dblclick', function (d) {
-        _this.changeNodeTextbox(d3.select(this), d);
+        _this.editNodeName(d3.select(this), d);
       });
 
       //背景に敷くためのrect要素を先に要素追加しておき、後でプロパティを設定する
@@ -378,13 +375,36 @@ var DirectoryTree = function () {
       this.updateToggleChildren();
     }
   }, {
-    key: 'deleteSelectedNode',
-    value: function deleteSelectedNode() {
+    key: 'setSelectedNodes',
+    value: function setSelectedNodes(selectNodes) {
+      var selectIds = [];
+      selectNodes.map(function (d) {
+        selectIds.push(d.data.id);
+      });
+
+      this.$nodes.each(function (d) {
+        var $node = d3.select(this);
+        var isSelected = selectIds.indexOf(d.data.id) > -1;
+        $node.classed('is-selected', isSelected);
+      });
+    }
+  }, {
+    key: 'getSelectedNodes',
+    value: function getSelectedNodes() {
       var selectedNodes = this.$nodeWrap.select('.node.is-selected').data();
       if (selectedNodes === undefined && selectedData.length === 0) {
-        return;
+        return null;
       }
-      this.deleteNode(selectedNodes[0]);
+      return selectedNodes;
+    }
+  }, {
+    key: 'deleteSelectedNode',
+    value: function deleteSelectedNode() {
+      var selectedNodes = this.getSelectedNodes();
+
+      for (var i = 0, len = selectedNodes.length; i < len; i++) {
+        this.deleteNode(selectedNodes[i]);
+      }
     }
   }, {
     key: 'deleteNode',
@@ -415,8 +435,8 @@ var DirectoryTree = function () {
       });
     }
   }, {
-    key: 'changeNodeTextbox',
-    value: function changeNodeTextbox($node, d) {
+    key: 'editNodeName',
+    value: function editNodeName($node, d) {
       var _this = this;
 
       d._isEdit = true;
