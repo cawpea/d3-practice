@@ -13,7 +13,7 @@ var margin = {
   left: 5
 };
 
-// 内部データ更新時のメソッド識別値
+// ノード更新時のメソッド識別用
 var NODE_METHOD = {
   UPDATE_NAME: 'updateName',
   TOGGLE_CHILDREN: 'toggleChildren',
@@ -42,11 +42,9 @@ var DirectoryTree = function () {
       var _this2 = this;
 
       this.getJsonData(function (data) {
-        _this2.treeData = data;
         _this2.bindEvents();
-        _this2.updateNodesData();
+        _this2.updateNodesData(data);
         _this2.updateNodesLayout();
-        _this2.appendBackground();
         _this2.appendContainer();
         _this2.appendNode();
       });
@@ -71,37 +69,24 @@ var DirectoryTree = function () {
   }, {
     key: 'onKeydownView',
     value: function onKeydownView(e) {
+      var isEnterKey = e.which === 13;
       var isDeleteKey = e.which === 8;
 
       if (isDeleteKey) {
-        var selectedNode = this.$nodeWrap.select('.node.is-selected').data();
-        this.deleteNode(selectedNode);
+        this.deleteSelectedNode();
       }
-    }
-  }, {
-    key: 'deleteNode',
-    value: function deleteNode(node) {
-      if (node.length === 0) {
-        return;
-      }
-
-      this.updateNode({
-        type: NODE_METHOD.DELETE_NODE,
-        data: {
-          id: node[0].data.id
-        }
-      });
     }
   }, {
     key: 'updateNodesData',
-    value: function updateNodesData() {
-      this.nodes = d3.hierarchy(this.treeData, function (d) {
+    value: function updateNodesData(jsonData) {
+      this.nodes = d3.hierarchy(jsonData, function (d) {
         return d.children;
       });
       this.nodeList = this.nodes.descendants();
 
       this.nodeList = this.nodeList.map(function (d) {
-        d.isShow = true;
+        d._isShow = true;
+        d._isEdit = false;
         return d;
       });
 
@@ -133,8 +118,8 @@ var DirectoryTree = function () {
 
       //各ノードのx,y座標を算出
       this.nodeList.map(function (node) {
-        node.x = node.depth * _this4.columnWidth;
-        node.y = node.verticalIndex * 50;
+        node._x = node.depth * _this4.columnWidth;
+        node._y = node._verticalIndex * 50;
       });
     }
     /*
@@ -147,12 +132,12 @@ var DirectoryTree = function () {
   }, {
     key: 'setChildProperties',
     value: function setChildProperties(node, childIndex, isShow) {
-      node.childIndex = childIndex;
-      node.isShow = isShow;
+      node._childIndex = childIndex;
+      node._isShow = isShow;
 
       //親ノードの場合は、子の数を保持する
       if (node.children === undefined || node.children === null) {
-        node.childrenLength = 0;
+        node._childrenLength = 0;
 
         //親が閉じられている場合は全ての子ノードを非表示にする
         var isCloseChildren = node._children !== undefined && node._children.length > 0;
@@ -164,7 +149,7 @@ var DirectoryTree = function () {
           }
         }
       } else {
-        node.childrenLength = node.children.length;
+        node._childrenLength = node.children.length;
 
         for (var _i = 0, _len = node.children.length; _i < _len; _i++) {
           this.setChildProperties(node.children[_i], _i, isShow);
@@ -175,17 +160,17 @@ var DirectoryTree = function () {
     key: 'setLeafLength',
     value: function setLeafLength(node) {
       if (node.children === undefined || node.children === null) {
-        node.leafLength = 0;
+        node._leafLength = 0;
       } else {
-        var leafLength = node.childrenLength;
+        var leafLength = node._childrenLength;
         node.children.map(function (n) {
-          if (n.leafLength > 0) {
-            leafLength += n.leafLength - 1; //最初の子は親と同じy座標に位置するため-1する
-          } else if (n.childrenLength > 0) {
-            leafLength += n.childrenLength - 1; //最初の子は親と同じy座標に位置するため-1する
+          if (n._leafLength > 0) {
+            leafLength += n._leafLength - 1; //最初の子は親と同じy座標に位置するため-1する
+          } else if (n._childrenLength > 0) {
+            leafLength += n._childrenLength - 1; //最初の子は親と同じy座標に位置するため-1する
           }
         });
-        node.leafLength = leafLength;
+        node._leafLength = leafLength;
       }
       if (node.parent !== null) {
         this.setLeafLength(node.parent);
@@ -199,20 +184,20 @@ var DirectoryTree = function () {
       if (node.parent === undefined || node.parent === null) {
         //ルートノードの場合は一番上に表示する
         verticalIndex = 0;
-      } else if (node.childIndex === 0 || !node.isShow) {
+      } else if (node._childIndex === 0 || !node._isShow) {
         //長男ノードの場合は親の隣に位置するため、縦方向の位置は同じ
-        verticalIndex = node.parent.verticalIndex;
+        verticalIndex = node.parent._verticalIndex;
       } else if (node.parent.children !== null) {
         //兄弟ノードの場合は自分の兄の縦方向の１つ下の位置
         node.parent.children.map(function (brotherNode) {
-          if (brotherNode.childIndex === node.childIndex - 1) {
-            verticalIndex = brotherNode.verticalIndex + brotherNode.leafLength;
-            verticalIndex -= brotherNode.leafLength > 0 ? 1 : 0;
+          if (brotherNode._childIndex === node._childIndex - 1) {
+            verticalIndex = brotherNode._verticalIndex + brotherNode._leafLength;
+            verticalIndex -= brotherNode._leafLength > 0 ? 1 : 0;
           }
         });
         verticalIndex += 1;
       }
-      node.verticalIndex = verticalIndex;
+      node._verticalIndex = verticalIndex;
     }
   }, {
     key: 'appendBackground',
@@ -227,6 +212,8 @@ var DirectoryTree = function () {
     key: 'appendContainer',
     value: function appendContainer() {
       this.$svg.attr('width', this.svgWidth).attr('height', this.svgHeight);
+
+      this.appendBackground();
 
       this.$nodeWrap = this.$svg.append('g').attr('transform', 'translate(' + margin.left + ', ' + margin.top + ')');
     }
@@ -252,10 +239,8 @@ var DirectoryTree = function () {
         return d.data.id;
       }).enter().append('g').attr('class', function (d) {
         return 'node' + (d.children ? ' node--branch' : ' node--leaf');
-      }).attr('data-id', function (d) {
-        return d.data.id;
       }).attr('width', this.columnWidth).attr('opacity', 1).attr('transform', function (d) {
-        return 'translate(' + d.x + ', ' + d.y + ')';
+        return 'translate(' + d._x + ', ' + d._y + ')';
       }).on('click', function (d) {
         _this.$nodes.each(function (d) {
           d3.select(this).classed('is-selected', false);
@@ -341,6 +326,16 @@ var DirectoryTree = function () {
                   v: void 0
                 };
               }
+
+              // 確認処理を行い、キャンセルした場合は処理を中断する。
+              var hasChildren = deleteNode.children && deleteNode.children.length > 0;
+              var doConfirm = param.confirm && typeof param.confirm === 'function';
+              if (hasChildren && doConfirm && !param.confirm()) {
+                return {
+                  v: void 0
+                };
+              }
+
               parentNode.children.map(function (d, i) {
                 if (d.data.id !== deleteNode.data.id) {
                   return true;
@@ -363,13 +358,13 @@ var DirectoryTree = function () {
         return d.data.id;
       }).classed('is-close', false).transition().on('end', function (d) {
         // アニメーションが終わった後にノードを非表示にする
-        if (!d.isShow) {
+        if (!d._isShow) {
           d3.select(this).classed('is-close', true);
         }
       }).duration(800).attr('opacity', function (d) {
-        return d.isShow ? 1 : 0;
+        return d._isShow ? 1 : 0;
       }).attr('transform', function (d) {
-        return 'translate(' + d.x + ', ' + d.y + ')';
+        return 'translate(' + d._x + ', ' + d._y + ')';
       });
 
       this.$nodeWrap.selectAll('.node').data(this.nodeList, function (d) {
@@ -383,15 +378,54 @@ var DirectoryTree = function () {
       this.updateToggleChildren();
     }
   }, {
+    key: 'deleteSelectedNode',
+    value: function deleteSelectedNode() {
+      var selectedNodes = this.$nodeWrap.select('.node.is-selected').data();
+      if (selectedNodes === undefined && selectedData.length === 0) {
+        return;
+      }
+      this.deleteNode(selectedNodes[0]);
+    }
+  }, {
+    key: 'deleteNode',
+    value: function deleteNode(node) {
+      //編集中には削除処理を実行しない
+      if (node._isEdit) {
+        return;
+      }
+
+      this.updateNode({
+        type: NODE_METHOD.DELETE_NODE,
+        data: {
+          id: node.data.id
+        },
+        confirm: function (_confirm) {
+          function confirm() {
+            return _confirm.apply(this, arguments);
+          }
+
+          confirm.toString = function () {
+            return _confirm.toString();
+          };
+
+          return confirm;
+        }(function () {
+          return confirm('子階層のキーワードも削除されますが、本当に削除してもよろしいですか？');
+        })
+      });
+    }
+  }, {
     key: 'changeNodeTextbox',
     value: function changeNodeTextbox($node, d) {
       var _this = this;
 
+      d._isEdit = true;
       $node.classed('is-editing', true);
 
       //テキストボックスを生成し、編集状態にする
-      var $inputNode = this.$svgWrap.append('input').attr('type', 'text').attr('value', d.data.name).attr('class', 'node-textbox').attr('style', 'left:' + d.x + 'px; top:' + d.y + 'px; width:' + (this.columnWidth - 6) + 'px; margin-top:10px;').on('blur', function () {
+      var $inputNode = this.$svgWrap.append('input').attr('type', 'text').attr('value', d.data.name).attr('class', 'node-textbox').attr('style', 'left:' + d._x + 'px; top:' + d._y + 'px; width:' + (this.columnWidth - 6) + 'px; margin-top:10px;').on('blur', function () {
         //テキストボックスからフォーカスが外れた場合は元のラベルを更新する
+        d._isEdit = false;
         $node.classed('is-editing', false);
         _this.$svgWrap.selectAll('.node-textbox').remove();
 
@@ -407,33 +441,14 @@ var DirectoryTree = function () {
       $inputNode.node().focus();
     }
   }, {
-    key: 'appendTextboxForNode',
-    value: function appendTextboxForNode() {
-      var _this6 = this;
-
-      var textboxSize = {
-        width: this.columnWidth,
-        height: 20
-      };
-
-      this.$nodeTextboxes = [];
-      this.$svgWrap.selectAll('.node-textbox').remove();
-
-      this.nodeList.map(function (node) {
-        var $input = _this6.$svgWrap.append('input').attr('class', 'node-textbox node-textbox-' + node.data.id).attr('data-id', node.data.id).attr('type', 'text').attr('style', 'left:' + node.x + 'px; top:' + (node.y + 6) + 'px; width:' + textboxSize.width + 'px; height:' + textboxSize.height + 'px;').attr('value', node.data.name);
-
-        _this6.$nodeTextboxes.push($input);
-      });
-    }
-  }, {
     key: 'appendToggleChildren',
     value: function appendToggleChildren() {
-      var _this7 = this;
+      var _this6 = this;
 
       var circleRadius = 8;
 
       this.$nodeToggles = this.$branches.append('g').attr('class', 'node-toggle').attr('transform', 'translate(' + (this.columnWidth - circleRadius * 2) + ', 0)').on('click', function (d) {
-        _this7.toggleChildren(d);
+        _this6.toggleChildren(d);
       });
 
       var $circles = this.$nodeToggles.append('circle').attr('r', circleRadius);
@@ -452,14 +467,14 @@ var DirectoryTree = function () {
   }, {
     key: 'appendLineToChild',
     value: function appendLineToChild() {
-      var _this8 = this;
+      var _this7 = this;
 
       this.$branchLines = this.$branches.append('line').attr('stroke', 'black').attr('stroke-width', 1).attr('stroke-dasharray', '1 4').attr('x1', function (d) {
         return d._nameWidth + 10;
       }).attr('y1', function (d) {
         return 0;
       }).attr('x2', function (d) {
-        return _this8.columnWidth;
+        return _this7.columnWidth;
       }).attr('y2', function (d) {
         return 0;
       });

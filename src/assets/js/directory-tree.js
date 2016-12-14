@@ -1,11 +1,11 @@
-var margin = {
+const margin = {
   top: 20,
   right: 90,
   bottom: 10,
   left: 5
 };
 
-// 内部データ更新時のメソッド識別値
+// ノード更新時のメソッド識別用
 const NODE_METHOD = {
   UPDATE_NAME: 'updateName',
   TOGGLE_CHILDREN: 'toggleChildren',
@@ -27,11 +27,9 @@ class DirectoryTree {
   }
   init() {
     this.getJsonData((data) => {
-      this.treeData = data;
       this.bindEvents();
-      this.updateNodesData();
+      this.updateNodesData(data);
       this.updateNodesLayout();
-      this.appendBackground();
       this.appendContainer();
       this.appendNode();
     });
@@ -48,33 +46,22 @@ class DirectoryTree {
     });
   }
   onKeydownView(e) {
+    let isEnterKey = e.which === 13;
     let isDeleteKey = e.which === 8;
 
     if( isDeleteKey ) {
-      let selectedNode = this.$nodeWrap.select('.node.is-selected').data();
-      this.deleteNode( selectedNode );
+      this.deleteSelectedNode();
     }
   }
-  deleteNode(node) {
-    if( node.length === 0 ) {
-      return;
-    }
-
-    this.updateNode({
-      type: NODE_METHOD.DELETE_NODE,
-      data: {
-        id: node[0].data.id
-      }
-    });
-  }
-  updateNodesData() {
-    this.nodes = d3.hierarchy( this.treeData, function(d) {
+  updateNodesData( jsonData ) {
+    this.nodes = d3.hierarchy( jsonData, function(d) {
       return d.children;
     });
     this.nodeList = this.nodes.descendants();
 
     this.nodeList = this.nodeList.map((d) => {
-      d.isShow = true;
+      d._isShow = true;
+      d._isEdit = false;
       return d;
     });
 
@@ -102,8 +89,8 @@ class DirectoryTree {
 
     //各ノードのx,y座標を算出
     this.nodeList.map((node) => {
-      node.x = node.depth * this.columnWidth;
-      node.y = node.verticalIndex * 50;
+      node._x = node.depth * this.columnWidth;
+      node._y = node._verticalIndex * 50;
     });
   }
   /*
@@ -114,12 +101,12 @@ class DirectoryTree {
   @param isShow (Boolean) ノードを表示する場合はtrue、そうでない場合はfalse
   */
   setChildProperties(node, childIndex, isShow) {
-    node.childIndex = childIndex;
-    node.isShow = isShow;
+    node._childIndex = childIndex;
+    node._isShow = isShow;
 
     //親ノードの場合は、子の数を保持する
     if( node.children === undefined || node.children === null ) {
-      node.childrenLength = 0;
+      node._childrenLength = 0;
 
       //親が閉じられている場合は全ての子ノードを非表示にする
       let isCloseChildren = node._children !== undefined && node._children.length > 0;
@@ -131,7 +118,7 @@ class DirectoryTree {
         }
       }
     }else {
-      node.childrenLength = node.children.length;
+      node._childrenLength = node.children.length;
 
       for( let i = 0, len = node.children.length; i < len; i++ ) {
         this.setChildProperties( node.children[i], i, isShow );
@@ -140,18 +127,18 @@ class DirectoryTree {
   }
   setLeafLength(node) {
     if( node.children === undefined || node.children === null ) {
-      node.leafLength = 0;
+      node._leafLength = 0;
     }else {
-      let leafLength = node.childrenLength;
+      let leafLength = node._childrenLength;
       node.children.map((n) => {
-        if( n.leafLength > 0 ) {
-          leafLength += n.leafLength - 1; //最初の子は親と同じy座標に位置するため-1する
+        if( n._leafLength > 0 ) {
+          leafLength += n._leafLength - 1; //最初の子は親と同じy座標に位置するため-1する
         }
-        else if( n.childrenLength > 0 ) {
-          leafLength += n.childrenLength - 1; //最初の子は親と同じy座標に位置するため-1する
+        else if( n._childrenLength > 0 ) {
+          leafLength += n._childrenLength - 1; //最初の子は親と同じy座標に位置するため-1する
         }
       });
-      node.leafLength = leafLength;
+      node._leafLength = leafLength;
     }
     if( node.parent !== null ) {
       this.setLeafLength( node.parent );
@@ -164,21 +151,21 @@ class DirectoryTree {
       //ルートノードの場合は一番上に表示する
       verticalIndex = 0;
     }
-    else if( node.childIndex === 0 || !node.isShow ) {
+    else if( node._childIndex === 0 || !node._isShow ) {
       //長男ノードの場合は親の隣に位置するため、縦方向の位置は同じ
-      verticalIndex = node.parent.verticalIndex;
+      verticalIndex = node.parent._verticalIndex;
     }
     else if( node.parent.children !== null ) {
       //兄弟ノードの場合は自分の兄の縦方向の１つ下の位置
       node.parent.children.map((brotherNode) => {
-        if(brotherNode.childIndex === node.childIndex - 1) {
-          verticalIndex = brotherNode.verticalIndex + brotherNode.leafLength;
-          verticalIndex -= brotherNode.leafLength > 0 ? 1 : 0;
+        if(brotherNode._childIndex === node._childIndex - 1) {
+          verticalIndex = brotherNode._verticalIndex + brotherNode._leafLength;
+          verticalIndex -= brotherNode._leafLength > 0 ? 1 : 0;
         }
       });
       verticalIndex += 1;
     }
-    node.verticalIndex = verticalIndex;
+    node._verticalIndex = verticalIndex;
   }
   appendBackground() {
     let $background = this.$svg.append('g');
@@ -197,9 +184,10 @@ class DirectoryTree {
       .attr('width', this.svgWidth )
       .attr('height', this.svgHeight );
 
+    this.appendBackground();
+
     this.$nodeWrap = this.$svg.append('g')
       .attr('transform', 'translate(' + margin.left + ', ' + margin.top + ')');
-
   }
   appendNode() {
     var _this = this;
@@ -226,13 +214,10 @@ class DirectoryTree {
       .attr('class', (d) => {
         return 'node' + (d.children ? ' node--branch' : ' node--leaf');
       })
-      .attr('data-id', (d) => {
-        return d.data.id;
-      })
       .attr('width', this.columnWidth)
       .attr('opacity', 1)
       .attr('transform', function(d) {
-        return 'translate(' + (d.x) + ', ' + (d.y) + ')';
+        return 'translate(' + (d._x) + ', ' + (d._y) + ')';
       })
       .on('click', function(d) {
         _this.$nodes.each(function(d) {
@@ -294,7 +279,6 @@ class DirectoryTree {
     this.appendToggleChildren();
   }
   updateNode( param ) {
-
     if( param ) {
       switch( param.type ) {
         case NODE_METHOD.UPDATE_NAME:
@@ -326,12 +310,20 @@ class DirectoryTree {
           if( parentNode === null ) {
             return;
           }
+
+          // 確認処理を行い、キャンセルした場合は処理を中断する。
+          let hasChildren = deleteNode.children && deleteNode.children.length > 0;
+          let doConfirm = param.confirm && typeof param.confirm === 'function';
+          if( hasChildren && doConfirm && !param.confirm() ) {
+            return;
+          }
+
           parentNode.children.map((d, i) => {
             if( d.data.id !== deleteNode.data.id ) {
               return true;
             }
             parentNode.children.splice(i, 1);
-          })
+          });
 
           this.nodeList = this.nodes.descendants();
           this.updateNodesLayout();
@@ -349,16 +341,16 @@ class DirectoryTree {
       .transition()
       .on('end', function(d) {
         // アニメーションが終わった後にノードを非表示にする
-        if( !d.isShow ) {
+        if( !d._isShow ) {
           d3.select(this).classed('is-close', true);
         }
       })
       .duration(800)
       .attr('opacity', (d) => {
-        return d.isShow ? 1 : 0;
+        return d._isShow ? 1 : 0;
       })
       .attr('transform', (d) => {
-        return `translate(${d.x}, ${d.y})`;
+        return `translate(${d._x}, ${d._y})`;
       });
 
     this.$nodeWrap.selectAll('.node')
@@ -375,9 +367,33 @@ class DirectoryTree {
 
     this.updateToggleChildren();
   }
+  deleteSelectedNode() {
+    let selectedNodes = this.$nodeWrap.select('.node.is-selected').data();
+    if( selectedNodes === undefined && selectedData.length === 0 ) {
+      return;
+    }
+    this.deleteNode( selectedNodes[0] );
+  }
+  deleteNode(node) {
+    //編集中には削除処理を実行しない
+    if( node._isEdit ) {
+      return;
+    }
+
+    this.updateNode({
+      type: NODE_METHOD.DELETE_NODE,
+      data: {
+        id: node.data.id
+      },
+      confirm: () => {
+        return confirm('子階層のキーワードも削除されますが、本当に削除してもよろしいですか？');
+      }
+    });
+  }
   changeNodeTextbox($node, d) {
     let _this = this;
 
+    d._isEdit = true;
     $node.classed('is-editing', true);
 
     //テキストボックスを生成し、編集状態にする
@@ -385,9 +401,10 @@ class DirectoryTree {
       .attr('type', 'text')
       .attr('value', d.data.name)
       .attr('class', 'node-textbox')
-      .attr('style', `left:${d.x}px; top:${d.y}px; width:${this.columnWidth - 6}px; margin-top:10px;`)
+      .attr('style', `left:${d._x}px; top:${d._y}px; width:${this.columnWidth - 6}px; margin-top:10px;`)
       .on('blur', function() {
         //テキストボックスからフォーカスが外れた場合は元のラベルを更新する
+        d._isEdit = false;
         $node.classed('is-editing', false);
         _this.$svgWrap.selectAll('.node-textbox').remove();
 
@@ -401,26 +418,6 @@ class DirectoryTree {
       });
 
     $inputNode.node().focus();
-  }
-  appendTextboxForNode() {
-    let textboxSize = {
-      width: this.columnWidth,
-      height: 20
-    };
-
-    this.$nodeTextboxes = [];
-    this.$svgWrap.selectAll('.node-textbox').remove();
-
-    this.nodeList.map((node) => {
-      let $input = this.$svgWrap.append('input')
-        .attr('class', 'node-textbox node-textbox-' + node.data.id)
-        .attr('data-id', node.data.id)
-        .attr('type', 'text')
-        .attr('style', `left:${node.x}px; top:${node.y + 6}px; width:${textboxSize.width}px; height:${textboxSize.height}px;`)
-        .attr('value', node.data.name);
-
-      this.$nodeTextboxes.push( $input );
-    });
   }
   appendToggleChildren() {
     let circleRadius = 8;
