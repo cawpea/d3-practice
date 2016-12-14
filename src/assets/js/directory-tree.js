@@ -9,7 +9,7 @@ var margin = {
 const NODE_METHOD = {
   UPDATE_NAME: 'updateName',
   TOGGLE_CHILDREN: 'toggleChildren',
-  DELETE: 'delete'
+  DELETE_NODE: 'deleteNode'
 };
 
 class DirectoryTree {
@@ -29,8 +29,8 @@ class DirectoryTree {
     this.getJsonData((data) => {
       this.treeData = data;
       this.bindEvents();
-      this.setTreeData();
-      this.setLayoutData();    
+      this.updateNodesData();
+      this.updateNodesLayout();
       this.appendBackground();
       this.appendContainer();
       this.appendNode();
@@ -49,12 +49,25 @@ class DirectoryTree {
   }
   onKeydownView(e) {
     let isDeleteKey = e.which === 8;
-    let selectedNode = this.$nodeWrap.select('.node.is-selected').data();
-    this.deleteNode( selectedNode );
+
+    if( isDeleteKey ) {
+      let selectedNode = this.$nodeWrap.select('.node.is-selected').data();
+      this.deleteNode( selectedNode );
+    }
   }
   deleteNode(node) {
+    if( node.length === 0 ) {
+      return;
+    }
+
+    this.updateNode({
+      type: NODE_METHOD.DELETE_NODE,
+      data: {
+        id: node[0].data.id
+      }
+    });
   }
-  setTreeData() {
+  updateNodesData() {
     this.nodes = d3.hierarchy( this.treeData, function(d) {
       return d.children;
     });
@@ -73,7 +86,7 @@ class DirectoryTree {
     // この時点で各ノードのx, y座標が算出される。
     // this.nodes = this.treemap( this.nodes );
   }
-  setLayoutData() {
+  updateNodesLayout() {
     //各子ノードに対して、親からのインデックス番号を保持する
     this.setChildProperties( this.nodes, 0, true );
 
@@ -205,11 +218,16 @@ class DirectoryTree {
 
     //ノード全体をラップするgroup要素
     this.$nodes = this.$nodeWrap.selectAll('.node')
-      .data(this.nodes.descendants())
+      .data(this.nodeList, (d) => {
+        return d.data.id;
+      })
       .enter()
       .append('g')
-      .attr('class', function(d) {
+      .attr('class', (d) => {
         return 'node' + (d.children ? ' node--branch' : ' node--leaf');
+      })
+      .attr('data-id', (d) => {
+        return d.data.id;
       })
       .attr('width', this.columnWidth)
       .attr('opacity', 1)
@@ -217,7 +235,9 @@ class DirectoryTree {
         return 'translate(' + (d.x) + ', ' + (d.y) + ')';
       })
       .on('click', function(d) {
-        _this.$nodes.classed('is-selected', false);
+        _this.$nodes.each(function(d) {
+          d3.select(this).classed('is-selected', false);
+        });
         d3.select(this).classed('is-selected', true);
       })
       .on('dblclick', function(d) {
@@ -268,7 +288,7 @@ class DirectoryTree {
     .attr('fill', 'transparent');
 
     //親ノードのみをキャッシュ
-    this.$branches = d3.selectAll('.node');
+    this.$branches = d3.selectAll('.node--branch');
 
     this.appendLineToChild();
     this.appendToggleChildren();
@@ -288,13 +308,43 @@ class DirectoryTree {
           break;
         case NODE_METHOD.TOGGLE_CHILDREN:
           // ノードレイアウト情報を更新する。
-          this.setLayoutData();
+          this.updateNodesLayout();
+          break;
+        case NODE_METHOD.DELETE_NODE:
+          // 対象ノードをデータから削除し、各ノードの位置を再計算する。
+          let parentNode = null;
+          let deleteNode = null;
+          this.nodes.each(function(d) {
+            if( param.data.id !== d.data.id ) {
+              return true;
+            }
+            deleteNode = d;
+            parentNode = d.parent;
+            return false;
+          });
+
+          if( parentNode === null ) {
+            return;
+          }
+          parentNode.children.map((d, i) => {
+            if( d.data.id !== deleteNode.data.id ) {
+              return true;
+            }
+            parentNode.children.splice(i, 1);
+          })
+
+          this.nodeList = this.nodes.descendants();
+          this.updateNodesLayout();
           break;
       }
     }
 
     // 内部データを元に各ノードの状態を更新する
-    this.$nodes.data( this.nodeList )
+    this.$nodes = this.$nodeWrap.selectAll('.node')
+      .data( this.nodeList, (d) => {
+        // idをもとに変更前と変更後のノード情報を紐づける
+        return d.data.id;
+      })
       .classed('is-close', false)
       .transition()
       .on('end', function(d) {
@@ -310,6 +360,13 @@ class DirectoryTree {
       .attr('transform', (d) => {
         return `translate(${d.x}, ${d.y})`;
       });
+
+    this.$nodeWrap.selectAll('.node')
+      .data( this.nodeList, (d) => {
+        return d.data.id;
+      })
+      .exit()
+      .remove();
 
     this.$nodes.selectAll('.node-name')
       .text((d) => {
