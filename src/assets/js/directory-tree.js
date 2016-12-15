@@ -27,6 +27,8 @@ class DirectoryTree {
 
     this.$svgWrap = d3.select(wrapper);
     this.$svg = d3.select(root);
+    this.$addNodeBottom = d3.select('.js-tree-addnode-bottom');
+    this.$addNodeRight = d3.select('.js-tree-addnode-right');
 
     this.svgWidth = 1000;
     this.svgHeight = 900;
@@ -51,6 +53,12 @@ class DirectoryTree {
   bindEvents() {
     document.addEventListener('keydown', (e) => {
       this.onKeydownView(e);
+    });
+    this.$addNodeBottom.on('click', (e) => {
+      this.onClickAddNode( APPEND_DIRECTION.TO_BOTTOM );
+    });
+    this.$addNodeRight.on('click', (e) => {
+      this.onClickAddNode( APPEND_DIRECTION.TO_RIGHT );
     });
   }
   onKeydownView(e) {
@@ -79,6 +87,15 @@ class DirectoryTree {
       }
       this.appendTempNode( selectedNode, direction );
     }
+  }
+  onClickAddNode(direction) {
+    let selectedNodes = this.getSelectedNodes();
+    if( selectedNodes === null || selectedNodes.length === 0 ) {
+      return;
+    }
+
+    let selectedNode = selectedNodes[0];
+    this.appendTempNode( selectedNode, direction );
   }
   createNodeData( nodeObj ) {
     return d3.hierarchy( nodeObj, (d) => {
@@ -477,7 +494,7 @@ class DirectoryTree {
       .attr('type', 'text')
       .attr('value', node.data.name)
       .attr('class', 'node-textbox')
-      .attr('style', `left:${node._x}px; top:${node._y}px; width:${this.columnWidth - 6}px; height:${this.nodeHeight}px; margin-top:4px;`)
+      .attr('style', `left:${node._x}px; top:${node._y + 7}px; width:${this.columnWidth}px; height:${this.nodeHeight}px;`)
       .on('blur', function() {
         let isEmpty = this.value.trim() === '';
         let newNodeName = d3.select(this).node().value;
@@ -527,7 +544,8 @@ class DirectoryTree {
   }
   appendTempNode( selectedNode, direction ) {
     let parentNode = selectedNode.parent;
-    if( parentNode === null ) {
+    if( parentNode === null && direction === APPEND_DIRECTION.TO_BOTTOM ) {
+      //ルート階層の下にノードは追加できないようにする
       return;
     }
 

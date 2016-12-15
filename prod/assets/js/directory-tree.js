@@ -37,6 +37,8 @@ var DirectoryTree = function () {
 
     this.$svgWrap = d3.select(wrapper);
     this.$svg = d3.select(root);
+    this.$addNodeBottom = d3.select('.js-tree-addnode-bottom');
+    this.$addNodeRight = d3.select('.js-tree-addnode-right');
 
     this.svgWidth = 1000;
     this.svgHeight = 900;
@@ -73,6 +75,12 @@ var DirectoryTree = function () {
       document.addEventListener('keydown', function (e) {
         _this3.onKeydownView(e);
       });
+      this.$addNodeBottom.on('click', function (e) {
+        _this3.onClickAddNode(APPEND_DIRECTION.TO_BOTTOM);
+      });
+      this.$addNodeRight.on('click', function (e) {
+        _this3.onClickAddNode(APPEND_DIRECTION.TO_RIGHT);
+      });
     }
   }, {
     key: 'onKeydownView',
@@ -101,6 +109,17 @@ var DirectoryTree = function () {
         }
         this.appendTempNode(selectedNode, direction);
       }
+    }
+  }, {
+    key: 'onClickAddNode',
+    value: function onClickAddNode(direction) {
+      var selectedNodes = this.getSelectedNodes();
+      if (selectedNodes === null || selectedNodes.length === 0) {
+        return;
+      }
+
+      var selectedNode = selectedNodes[0];
+      this.appendTempNode(selectedNode, direction);
     }
   }, {
     key: 'createNodeData',
@@ -504,7 +523,7 @@ var DirectoryTree = function () {
       $node.classed('is-editing', true);
 
       //テキストボックスを生成し、編集状態にする
-      var $inputNode = this.$svgWrap.append('input').attr('type', 'text').attr('value', node.data.name).attr('class', 'node-textbox').attr('style', 'left:' + node._x + 'px; top:' + node._y + 'px; width:' + (this.columnWidth - 6) + 'px; height:' + this.nodeHeight + 'px; margin-top:4px;').on('blur', function () {
+      var $inputNode = this.$svgWrap.append('input').attr('type', 'text').attr('value', node.data.name).attr('class', 'node-textbox').attr('style', 'left:' + node._x + 'px; top:' + (node._y + 7) + 'px; width:' + this.columnWidth + 'px; height:' + this.nodeHeight + 'px;').on('blur', function () {
         var isEmpty = this.value.trim() === '';
         var newNodeName = d3.select(this).node().value;
 
@@ -559,7 +578,8 @@ var DirectoryTree = function () {
     key: 'appendTempNode',
     value: function appendTempNode(selectedNode, direction) {
       var parentNode = selectedNode.parent;
-      if (parentNode === null) {
+      if (parentNode === null && direction === APPEND_DIRECTION.TO_BOTTOM) {
+        //ルート階層の下にノードは追加できないようにする
         return;
       }
 

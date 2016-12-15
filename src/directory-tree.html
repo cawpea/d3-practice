@@ -3,7 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <title>Document</title>
+  <!-- Latest compiled and minified CSS -->
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+
   <style>
+  /* For Layout */
+  .wrapper {
+    margin: 30px;
+  }
+  nav {
+    margin: 20px 0;
+  }
+
+  /* For Tree */
   .tree-wrap {
     position: relative;
   }
@@ -32,6 +44,8 @@
   }
   .node-textbox {
     position: absolute;
+    box-sizing: border-box;
+    margin: 0;
   }
   .link {
     fill: none;
@@ -41,10 +55,16 @@
   </style>
 </head>
 <body>
-  <h1>Directory Tree</h1/>
-  <div class="tree-wrap">
-    <svg id="tree"></svg>
-  </div>
+  <section class="wrapper">
+    <h1>Directory Tree</h1/>
+    <nav>
+      <button class="btn btn-default js-tree-addnode-bottom">項目を下に追加</button>
+      <button class="btn btn-default js-tree-addnode-right">項目を右に追加</button>
+    </nav>
+    <div class="tree-wrap">
+      <svg id="tree"></svg>
+    </div>
+  </section>
   <script src="https://d3js.org/d3.v4.min.js"></script>
   <script src="/assets/js/directory-tree.js"></script>
 </body>
