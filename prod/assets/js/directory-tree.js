@@ -17,7 +17,14 @@ var margin = {
 var NODE_METHOD = {
   UPDATE_NAME: 'updateName',
   TOGGLE_CHILDREN: 'toggleChildren',
-  DELETE_NODE: 'deleteNode'
+  DELETE_NODE: 'deleteNode',
+  APPEND_NODE_TEMP: 'appendNodeTemp'
+};
+
+// ノード追加時の位置
+var APPEND_DIRECTION = {
+  TO_BOTTOM: 'appendToBottom',
+  TO_RIGHT: 'appendToRight'
 };
 
 var DirectoryTree = function () {
@@ -34,6 +41,7 @@ var DirectoryTree = function () {
     this.svgWidth = 1000;
     this.svgHeight = 900;
     this.columnWidth = 250;
+    this.nodeHeight = 25;
   }
 
   _createClass(DirectoryTree, [{
@@ -71,17 +79,40 @@ var DirectoryTree = function () {
     value: function onKeydownView(e) {
       var isEnterKey = e.which === 13;
       var isDeleteKey = e.which === 8;
+      var isTabKey = e.which === 9;
 
       if (isDeleteKey) {
         this.deleteSelectedNode();
+      } else if (isEnterKey || isTabKey) {
+        e.preventDefault();
+        var selectedNodes = this.getSelectedNodes();
+        var direction = isTabKey ? APPEND_DIRECTION.TO_RIGHT : APPEND_DIRECTION.TO_BOTTOM;
+
+        if (selectedNodes === null || selectedNodes.length === 0) {
+          return;
+        }
+
+        var selectedNode = selectedNodes[0];
+        if (selectedNode._isEdit) {
+          if (!this.isNodeNameEmpty()) {
+            this.editEndNodeName();
+          }
+          return;
+        }
+        this.appendTempNode(selectedNode, direction);
       }
+    }
+  }, {
+    key: 'createNodeData',
+    value: function createNodeData(nodeObj) {
+      return d3.hierarchy(nodeObj, function (d) {
+        return d.children;
+      });
     }
   }, {
     key: 'updateNodesData',
     value: function updateNodesData(jsonData) {
-      this.nodes = d3.hierarchy(jsonData, function (d) {
-        return d.children;
-      });
+      this.nodes = this.createNodeData(jsonData);
       this.nodeList = this.nodes.descendants();
 
       this.nodeList = this.nodeList.map(function (d) {
@@ -134,6 +165,7 @@ var DirectoryTree = function () {
     value: function setChildProperties(node, childIndex, isShow) {
       node._childIndex = childIndex;
       node._isShow = isShow;
+      node._isTemp = !!node.data._isTemp;
 
       //親ノードの場合は、子の数を保持する
       if (node.children === undefined || node.children === null) {
@@ -218,10 +250,56 @@ var DirectoryTree = function () {
       this.$nodeWrap = this.$svg.append('g').attr('transform', 'translate(' + margin.left + ', ' + margin.top + ')');
     }
   }, {
-    key: 'appendNode',
-    value: function appendNode() {
+    key: 'createNode',
+    value: function createNode(dataSet) {
       var _this = this;
 
+      var $nodes = this.$nodeWrap.selectAll('.node').data(dataSet, function (d) {
+        return d.data.id;
+      }).enter().append('g').attr('class', function (d) {
+        return 'node' + (d.children ? ' node--branch' : ' node--leaf');
+      }).attr('width', this.columnWidth).attr('height', this.nodeHeight).attr('opacity', 1).attr('transform', function (d) {
+        return 'translate(' + d._x + ', ' + d._y + ')';
+      }).on('click', function (d) {
+        _this.setSelectedNodes([d]);
+      }).on('dblclick', function (d) {
+        _this.editStartNodeName(d);
+      });
+
+      //背景に敷くためのrect要素を先に要素追加しておき、後でプロパティを設定する
+      var $nodesBg = $nodes.append('rect');
+
+      //ノード名の左側に表示するアイコン
+      var $nodeHead = $nodes.append('circle').attr('r', 3);
+
+      //ノード名用text要素
+      var $nodeText = $nodes.append('text').attr('class', 'node-name').attr('dx', function (d) {
+        return '5px';
+      }).attr('dy', '.35em').attr('x', function (d) {
+        return 13;
+      }).style('text-anchor', function (d) {
+        return 'start';
+      }).text(function (d) {
+        return d.data.name;
+      });
+
+      //名前用text要素からサイズをキャッシュしておき、他要素のレイアウトの計算に使用する。
+      $nodes.each(function (d) {
+        var bbox = this.getBBox();
+        d._nameWidth = bbox.width + bbox.x;
+        d._nameHeight = bbox.height - bbox.y;
+      });
+
+      //背景用rect要素のプロパティを設定
+      $nodesBg.attr('height', function (d) {
+        return d._nameHeight;
+      }).attr('class', 'node-bg').attr('width', this.columnWidth - 5).attr('height', this.nodeHeight).attr('x', 0).attr('y', -(this.nodeHeight / 2)).attr('fill', 'transparent');
+
+      return $nodes;
+    }
+  }, {
+    key: 'appendNode',
+    value: function appendNode() {
       // let link = g.selectAll('.link')
       //   .data( this.nodes.descendants().slice(1) )
       //   .enter()
@@ -234,49 +312,7 @@ var DirectoryTree = function () {
       //       + ' ' + d.parent.y + ',' + d.parent.x;
       //   });
 
-      //ノード全体をラップするgroup要素
-      this.$nodes = this.$nodeWrap.selectAll('.node').data(this.nodeList, function (d) {
-        return d.data.id;
-      }).enter().append('g').attr('class', function (d) {
-        return 'node' + (d.children ? ' node--branch' : ' node--leaf');
-      }).attr('width', this.columnWidth).attr('opacity', 1).attr('transform', function (d) {
-        return 'translate(' + d._x + ', ' + d._y + ')';
-      }).on('click', function (d) {
-        _this.setSelectedNodes([d]);
-      }).on('dblclick', function (d) {
-        _this.editNodeName(d3.select(this), d);
-      });
-
-      //背景に敷くためのrect要素を先に要素追加しておき、後でプロパティを設定する
-      var $nodesBg = this.$nodes.append('rect');
-
-      //ノード名の左側に表示するアイコン
-      var $nodeHead = this.$nodes.append('circle').attr('r', 3);
-
-      //ノード名用text要素
-      var $nodeText = this.$nodes.append('text').attr('class', 'node-name').attr('dx', function (d) {
-        return '5px';
-      }).attr('dy', '.35em').attr('x', function (d) {
-        return 13;
-      }).style('text-anchor', function (d) {
-        return 'start';
-      }).text(function (d) {
-        return d.data.name;
-      });
-
-      //名前用text要素からサイズをキャッシュしておき、他要素のレイアウトの計算に使用する。
-      this.$nodes.each(function (d) {
-        var bbox = this.getBBox();
-        d._nameWidth = bbox.width + bbox.x;
-        d._nameHeight = bbox.height - bbox.y;
-      });
-
-      //背景用rect要素のプロパティを設定
-      $nodesBg.attr('height', function (d) {
-        return d._nameHeight;
-      }).attr('class', 'node-bg').attr('width', this.columnWidth - 5).attr('x', 0).attr('y', function (d) {
-        return -(d._nameHeight / 2);
-      }).attr('fill', 'transparent');
+      this.$nodes = this.createNode(this.nodeList);
 
       //親ノードのみをキャッシュ
       this.$branches = d3.selectAll('.node--branch');
@@ -343,11 +379,17 @@ var DirectoryTree = function () {
               _this5.nodeList = _this5.nodes.descendants();
               _this5.updateNodesLayout();
               break;
+            case NODE_METHOD.APPEND_NODE_TEMP:
+              _this5.nodeList = _this5.nodes.descendants();
+              _this5.updateNodesLayout();
+              break;
           }
         }();
 
         if ((typeof _ret === 'undefined' ? 'undefined' : _typeof(_ret)) === "object") return _ret.v;
       }
+
+      var $newNode = this.createNode(this.nodeList);
 
       // 内部データを元に各ノードの状態を更新する
       this.$nodes = this.$nodeWrap.selectAll('.node').data(this.nodeList, function (d) {
@@ -364,13 +406,20 @@ var DirectoryTree = function () {
         return 'translate(' + d._x + ', ' + d._y + ')';
       });
 
-      this.$nodeWrap.selectAll('.node').data(this.nodeList, function (d) {
+      var $delNodes = this.$nodeWrap.selectAll('.node').data(this.nodeList, function (d) {
         return d.data.id;
       }).exit().remove();
 
-      this.$nodes.selectAll('.node-name').text(function (d) {
+      var $texts = this.$nodes.selectAll('.node-name').text(function (d) {
         return d.data.name;
       });
+
+      if ($newNode !== undefined && $newNode !== null && $newNode.data().length > 0) {
+        //内部データを更新した後、追加されたノードは編集状態にする
+        var newNodeData = $newNode.data()[0];
+        this.editStartNodeName(newNodeData);
+        this.setSelectedNodes([newNodeData]);
+      }
 
       this.updateToggleChildren();
     }
@@ -435,30 +484,119 @@ var DirectoryTree = function () {
       });
     }
   }, {
-    key: 'editNodeName',
-    value: function editNodeName($node, d) {
+    key: 'editStartNodeName',
+    value: function editStartNodeName(node) {
       var _this = this;
+      var $node = void 0;
 
-      d._isEdit = true;
+      this.$nodes.each(function (d) {
+        if (d.data.id === node.data.id) {
+          $node = d3.select(this);
+          return false;
+        }
+      });
+
+      if ($node === undefined) {
+        return;
+      }
+
+      node._isEdit = true;
       $node.classed('is-editing', true);
 
       //テキストボックスを生成し、編集状態にする
-      var $inputNode = this.$svgWrap.append('input').attr('type', 'text').attr('value', d.data.name).attr('class', 'node-textbox').attr('style', 'left:' + d._x + 'px; top:' + d._y + 'px; width:' + (this.columnWidth - 6) + 'px; margin-top:10px;').on('blur', function () {
+      var $inputNode = this.$svgWrap.append('input').attr('type', 'text').attr('value', node.data.name).attr('class', 'node-textbox').attr('style', 'left:' + node._x + 'px; top:' + node._y + 'px; width:' + (this.columnWidth - 6) + 'px; height:' + this.nodeHeight + 'px; margin-top:4px;').on('blur', function () {
+        var isEmpty = this.value.trim() === '';
+        var newNodeName = d3.select(this).node().value;
+
         //テキストボックスからフォーカスが外れた場合は元のラベルを更新する
-        d._isEdit = false;
+        node._isEdit = false;
         $node.classed('is-editing', false);
         _this.$svgWrap.selectAll('.node-textbox').remove();
+
+        if (isEmpty) {
+          if (node._isTemp) {
+            //ノード追加時の場合は追加前の状態に戻す
+            _this.deleteNode(node);
+            return;
+          } else {
+            //空文字の場合は元の名前に戻す
+            newNodeName = node.data.name;
+          }
+        }
 
         _this.updateNode({
           type: NODE_METHOD.UPDATE_NAME,
           data: {
-            id: d.data.id,
-            name: d3.select(this).node().value
+            id: node.data.id,
+            name: newNodeName
           }
         });
       });
 
       $inputNode.node().focus();
+    }
+  }, {
+    key: 'editEndNodeName',
+    value: function editEndNodeName() {
+      var $inputNode = this.$svgWrap.selectAll('.node-textbox');
+      if ($inputNode.data().length === 0) {
+        return;
+      }
+      $inputNode.node().blur();
+    }
+  }, {
+    key: 'isNodeNameEmpty',
+    value: function isNodeNameEmpty() {
+      var isEmpty = true;
+      var $inputNode = this.$svgWrap.selectAll('.node-textbox');
+      if ($inputNode.data().length === 0) {
+        return isEmpty;
+      }
+      isEmpty = $inputNode.node().value.trim() === '';
+      return isEmpty;
+    }
+  }, {
+    key: 'appendTempNode',
+    value: function appendTempNode(selectedNode, direction) {
+      var parentNode = selectedNode.parent;
+      if (parentNode === null) {
+        return;
+      }
+
+      this.tempId = this.tempId ? --this.tempId : -1;
+
+      var tempNodeObj = {
+        id: this.tempId,
+        name: '',
+        children: null,
+        _isTemp: true
+      };
+
+      // ノード追加を行うための一時ノードを生成してツリーに加える
+      var tempNodeData = this.createNodeData(tempNodeObj);
+
+      switch (direction) {
+        case APPEND_DIRECTION.TO_RIGHT:
+          tempNodeData.depth = selectedNode.depth + 1;
+          tempNodeData.parent = selectedNode;
+
+          if (selectedNode.children === undefined || selectedNode.children === null) {
+            selectedNode.children = [tempNodeData];
+          } else {
+            selectedNode.children.splice(0, 0, tempNodeData);
+          }
+          break;
+        case APPEND_DIRECTION.TO_BOTTOM:
+          tempNodeData.depth = selectedNode.depth;
+          tempNodeData.parent = selectedNode.parent;
+
+          parentNode.children.splice(selectedNode._childIndex + 1, 0, tempNodeData);
+          break;
+      }
+
+      this.updateNode({
+        type: NODE_METHOD.APPEND_NODE_TEMP
+      });
     }
   }, {
     key: 'appendToggleChildren',
